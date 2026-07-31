@@ -36,7 +36,10 @@ import { Badge } from "@/components/ui/badge";
 import { MultiSelectCombobox } from "@/components/ui/multi-select-combobox";
 import { useToast } from "@/hooks/use-toast";
 
-const SERVER_BASE = "http://localhost:8000";
+const SERVER_BASE = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || "http://localhost:8000";
+const WS_BASE = typeof window !== 'undefined' && window.location.protocol === 'https:' 
+  ? `wss://${window.location.host}` 
+  : "ws://localhost:8000";
 
 const getFullUrl = (url: string | null): string | null => {
   if (!url) return null;
@@ -177,7 +180,7 @@ export default function ChatBot() {
   const connectSocket = useCallback((groupId: number) => {
     const token = accessToken || localStorage.getItem("access_token");
     if (!token) return;
-    const wsUrl = `ws://localhost:8000/ws/chat/${groupId}/?token=${token}`;
+    const wsUrl = `${WS_BASE}/ws/chat/${groupId}/?token=${token}`;
     wsRef.current?.close();
     const ws = new WebSocket(wsUrl);
     ws.onopen = () => setConnected(true);
@@ -388,7 +391,7 @@ export default function ChatBot() {
       const token = accessToken || localStorage.getItem("access_token");
       if (!token || !shouldConnect) return;
 
-      const wsUrl = `ws://localhost:8000/ws/chat/notifications/?token=${token}`;
+      const wsUrl = `${WS_BASE}/ws/chat/notifications/?token=${token}`;
       const ws = new WebSocket(wsUrl);
       notifWsRef.current = ws;
 
