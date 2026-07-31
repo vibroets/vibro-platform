@@ -278,7 +278,7 @@ class VerifyOTPView(APIView):
                         )
 
                     # Check if default location leader (block email login)
-                    if user.role.name == USER_ROLES['LOCATION_LEADER']:
+                    if user.role and user.role.name == USER_ROLES['LOCATION_LEADER']:
                         employee_id_lower = user.employee_id.lower() if user.employee_id else ''
                         if employee_id_lower.startswith('default_loc'):
                             return Response({"error": "Default location leaders must use phone login. Email login not allowed."}, status=status.HTTP_403_FORBIDDEN)
