@@ -1,0 +1,88 @@
+# Python
+__pycache__/
+/__pycache__/
+__pycache__
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*$py.class
+.pyc
+# Django specific
+*.log
+*.pot
+*.pyc
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Environment files
+.env
+.env.*
+
+# Virtual Environments
+venv/
+ENV/
+env/
+.venv/
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# macOS
+.DS_Store
+
+# mypy
+.mypy_cache/
+
+# Pytest
+.pytest_cache/
+
+# Coverage reports
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+*.py,cover
+
+# Django migrations
+**/migrations/*.py
+**/migrations/*.pyc
+**/migrations/__pycache__/
+
+# Static files
+staticfiles/
+static/
+media/
+
+# Node (if using with frontend assets)
+node_modules/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Gunicorn
+gunicorn.pid
+
+# Docker
+*.pid
+*.seed
+*.pid.lock
+
+# Logs
+*.log
+
+# Backup files
+*.bak
+*.swp
+*~ 
+
+# JetBrains
+*.idea/
+
+# Secret key file (if you use separate secret config files)
+secret.json

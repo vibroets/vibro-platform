@@ -1,0 +1,27 @@
+# Backend
+vibro-backend-main/db.sqlite3
+vibro-backend-main/media/
+vibro-backend-main/staticfiles/
+vibro-backend-main/.env
+
+# Frontend
+vibro-frontend-main/node_modules/
+vibro-frontend-main/.next/
+vibro-frontend-main/.env*
+
+# Mobile
+vibro-mobile-app-main/node_modules/
+vibro-mobile-app-main/.expo/
+vibro-mobile-app-main/dist/
+vibro-mobile-app-main/.env*
+
+# Deployment
+deploy/.env
+deploy/nginx/certs/*.pem
+deploy/nginx/certs/*.key
+
+# General
+*.pyc
+__pycache__/
+.DS_Store
+*.log

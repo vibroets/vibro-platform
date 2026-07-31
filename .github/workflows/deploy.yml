@@ -1,0 +1,42 @@
+name: Deploy to Oracle Cloud
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          port: ${{ secrets.ORACLE_PORT || 22 }}
+          script: |
+            cd /opt/vibro
+            git pull origin main
+
+            # Copy deployment files
+            cp -r deploy/* deploy/ 2>/dev/null || true
+
+            # Rebuild and restart services
+            cd /opt/vibro/deploy
+            docker compose build --no-cache backend frontend
+            docker compose up -d backend frontend
+
+            # Run migrations
+            docker compose exec -T backend python manage.py migrate --noinput
+            docker compose exec -T backend python manage.py collectstatic --noinput
+
+            # Reload nginx
+            docker compose restart nginx
+
+            echo "Deployment completed at $(date)"

@@ -1,0 +1,98 @@
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import (
+    FormViewSet, FolderViewSet, QuestionTypeView,
+    FormTypeView, StageAccessTypeView, FormArchiveView,
+    FormArchiveListView, FormDeleteView, FormDeletedListView,
+    FormBulkDeleteView, FormBulkArchiveView, FormAssignmentTypeView,
+    FormAssignmentViewSet, FormAllDeleteView, FormDetailsViewSet,
+    UserAssignedFormsView,AssignedFormsInFolderView, SubmitStageAnswerView,
+    UsedFoldersByUserView, StageAssignmentViewSet, UserSentFormsView,
+    UserReceivedFormsView, FormSubmissionList, FormResponseView, UserSentFormsMobileView,
+    FormSubmissionGroupedList, AssignedFormsList, UserReceivedFormsMobileView,OrganizationFoldersView,
+    FormsInFolderView, StageSubmissionHistoryView, FormUnAssignmentViewSet, FormCloneViewSet, FormResponsePDFView,
+    SubmitGroupAnswerView,FormRecipientListView,FormRecipientUnshareView, UserGroupAssignedFormsView,
+    FormToggleView, FormSubmissionShareView,FormListViewSet,FormEditViewSet, FormFolderUpdateView,
+    LatestFormSubmissionView,FormAnswerEditView,GetFormResponseView,    FormResponsePDFDownloadView,FormResponseCSVView, OrganizationFormsView, OrganizationFormsViewOptimized,
+    FormPayloadFilesViewSet, FormCountsView, AuditFormScoreDataView, TriggerFollowupTasksView, TaskCloseQuestionsView, TaskCloseQuestionsAnswersView, ExcelReportStatusView, PDFReportStatusView,
+    ReportDownloadRedirectView, FormResponseCSVFollowupView, FormResponseFollowupTableView,
+    PreviousSubmissionsView,
+    FormStageMetadataView,
+    FormFastView,
+    FormBatchMetadataView,
+)
+
+router = DefaultRouter()
+router.register(r'form/assignments', FormAssignmentViewSet, basename='form-assignment')
+router.register(r'form/unassignment', FormUnAssignmentViewSet, basename='form-unassignment')
+router.register(r'form/stage/assignment', StageAssignmentViewSet, basename='stage-assignment')
+router.register(r'form', FormViewSet, basename='form')
+router.register(r'folder', FolderViewSet, basename='folder')
+router.register(r'form-payload-files', FormPayloadFilesViewSet, basename='form-payload-files')
+
+urlpatterns = [
+    path('form/question-types/', QuestionTypeView.as_view(), name='question-types'),
+    path('form/assign-types/', FormAssignmentTypeView.as_view(), name='assign-types'),
+    path('form/form-types/', FormTypeView.as_view(), name='form-types'),
+    path('form/stage-access-types/', StageAccessTypeView.as_view(), name='stage-access-types'),
+    path('form/archive/list', FormArchiveListView.as_view(), name='form-archive-list'),
+    path('form/delete/list', FormDeletedListView.as_view(), name='form-delete-list'),
+    path('form/archive/<int:pk>', FormArchiveView.as_view(), name='form-archive'),
+    path('form/delete/<int:pk>', FormDeleteView.as_view(), name='form-delete'),
+    path('form/bulk/delete', FormBulkDeleteView.as_view(), name='form-bulk-delete'),
+    path('form/bulk/archive', FormBulkArchiveView.as_view(), name='form-bulk-archive'),
+    path('form/clone/<int:form_id>', FormCloneViewSet.as_view(), name='form-clone'),
+    
+    path('form/form-list/', FormDetailsViewSet.as_view(), name='form-list'),
+    path('form/all/delete', FormAllDeleteView.as_view(), name='form-all-delete'),
+    path('form/assigned/user/<int:user_id>/', UserAssignedFormsView.as_view(), name='user-assigned-forms-by-id'),
+    path('form/assigned/folder/<int:folder_id>/', AssignedFormsInFolderView.as_view(), name='assigned-forms-in-folder'),
+    
+    path('form/user/received/<int:user_id>/', UserReceivedFormsView.as_view(), name='user-received-forms-by-id'),
+    path('form/user/sent/<int:user_id>/', UserSentFormsView.as_view(), name='user-sent-forms-by-id'),
+    
+    path('form/stage/submit-answer/', SubmitStageAnswerView.as_view(), name='submit-stage-answer'),
+    
+    path('form/group/submit-answer/', SubmitGroupAnswerView.as_view(), name='submit-group-answer'),
+    path('form/submissions/', FormSubmissionList.as_view(), name='form-submissions'),
+    path('form/response/<int:form_id>/<int:submission_id>', FormResponseView.as_view(), name='fomr-response'),
+    path('form/used-folders/user', UsedFoldersByUserView.as_view(), name='assigned-folders'),
+    path('form/submissions-grouped/', FormSubmissionGroupedList.as_view(), name='form-submissions-grouped'),
+    path('form/assigned-forms-list/', AssignedFormsList.as_view(), name='assigned-forms-list'),
+    path('form/user/sent/mobile/<int:user_id>/', UserSentFormsMobileView.as_view(), name='user-sent-forms-by-id'),
+    path('form/users/<int:user_id>/received-forms-mobile/', UserReceivedFormsMobileView.as_view(), name='user-received-forms-mobile'),
+    path('folders/organization/', OrganizationFoldersView.as_view(), name='organization-folders'),
+    path('forms/folder/<int:folder_id>/', FormsInFolderView.as_view(), name='forms-in-folder'),
+    path('form/users/<int:user_id>/submission-history/', StageSubmissionHistoryView.as_view(), name='user-submission-history'),
+    path('form/assignments/recipients/<int:form_id>/', FormRecipientListView.as_view(), name='form-recipient-list'),
+    path('form/assignments/recipients/<int:form_id>/<int:user_id>/', FormRecipientUnshareView.as_view(), name='form-unshare-recipient'),
+    path('form/assigned/group/user/', UserGroupAssignedFormsView.as_view(), name='user-assigned-group-forms'),
+    path('form/list/', FormListViewSet.as_view({'get': 'list'}), name='form-list'),
+    path('form/edit/<int:form_id>/', FormEditViewSet.as_view(), name='form-edit'),
+    path('form/toggle/<int:pk>/', FormToggleView.as_view(), name='form-toggles'),
+    path('form/submission/share/<int:form_id>/<int:submission_id>/', FormSubmissionShareView.as_view(), name='form-submission-share'),
+    path('form/change-folder/<int:pk>/', FormFolderUpdateView.as_view(), name='form-folder-update'),
+    path('form/<int:form_id>/latest-submission/', LatestFormSubmissionView.as_view(), name='latest-form-submission'),
+    path('form/answers/edit/', FormAnswerEditView.as_view(), name='form-answer-edit'),
+    path('form/response/', GetFormResponseView.as_view(), name='form-response-get'),
+    path('form/counts/', FormCountsView.as_view(), name='form-counts'),
+    path('form/trigger-followup-tasks/', TriggerFollowupTasksView.as_view(), name='trigger-followup-tasks'),
+    path('form/task-close-questions/<int:task_id>/', TaskCloseQuestionsView.as_view(), name='task-close-questions'),
+    path('form/task-close-questions/<int:task_id>/answers/', TaskCloseQuestionsAnswersView.as_view(), name='task-close-questions-answers'),
+    # path('forms/organization/<int:organization_id>/', OrganizationFormsView.as_view(), name='organization-forms'),
+    path('forms/organization/<int:organization_id>/', OrganizationFormsViewOptimized.as_view(), name='organization-forms'),
+    path("forms/<int:form_id>/submissions/pdf", FormResponsePDFView.as_view()),
+    path("forms/<int:form_id>/submissions/pdf/download", FormResponsePDFDownloadView.as_view()),
+    path("forms/<int:form_id>/submissions/excel", FormResponseCSVView.as_view()),
+    path("forms/<int:form_id>/submissions/csv-followup", FormResponseCSVFollowupView.as_view()),
+    path("forms/<int:form_id>/submissions/followup-table", FormResponseFollowupTableView.as_view()),
+    path("forms/<int:form_id>/audit/score-data/", AuditFormScoreDataView.as_view(), name='audit-form-score-data'),
+    path('reports/download/<uuid:tracking_id>', ReportDownloadRedirectView.as_view(), name='report-download-redirect'),
+    path('reports/excel/<uuid:tracking_id>/status', ExcelReportStatusView.as_view(), name='excel-report-status'),
+    path('reports/pdf/<uuid:tracking_id>/status', PDFReportStatusView.as_view(), name='pdf-report-status'),
+    path('form/previous-submissions/', PreviousSubmissionsView.as_view(), name='previous-submissions'),
+    path('form/<int:form_id>/stage-metadata/', FormStageMetadataView.as_view(), name='form-stage-metadata'),
+    path('form/<int:form_id>/fast/', FormFastView.as_view(), name='form-fast'),
+    path('form/batch-metadata/', FormBatchMetadataView.as_view(), name='form-batch-metadata'),
+    path('', include(router.urls)),
+]

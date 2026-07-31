@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vibro — Operational Excellence Platform</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f0f4f8;
+    color: #1a202c;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .pamphlet {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #ffffff;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+  }
+
+  /* ===== HERO SECTION ===== */
+  .hero {
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%);
+    color: white;
+    padding: 60px 50px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -30%;
+    left: -5%;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+
+  .hero-content { position: relative; z-index: 1; }
+
+  .hero-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .hero h1 {
+    font-size: 52px;
+    font-weight: 900;
+    line-height: 1.1;
+    margin-bottom: 16px;
+    letter-spacing: -1px;
+  }
+
+  .hero h1 .accent {
+    background: linear-gradient(90deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero p {
+    font-size: 20px;
+    font-weight: 300;
+    line-height: 1.5;
+    max-width: 600px;
+    opacity: 0.9;
+  }
+
+  .hero-platforms {
+    display: flex;
+    gap: 12px;
+    margin-top: 28px;
+  }
+
+  .platform-badge {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 8px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .platform-badge .icon { font-size: 18px; }
+
+  /* ===== STATS BAR ===== */
+  .stats-bar {
+    display: flex;
+    background: #1e293b;
+    color: white;
+    padding: 24px 50px;
+    justify-content: space-around;
+  }
+
+  .stat-item { text-align: center; }
+
+  .stat-number {
+    font-size: 32px;
+    font-weight: 800;
+    color: #60a5fa;
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 6px;
+    opacity: 0.7;
+  }
+
+  /* ===== FEATURES SECTION ===== */
+  .features {
+    padding: 60px 50px;
+  }
+
+  .section-title {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .section-title h2 {
+    font-size: 32px;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 8px;
+  }
+
+  .section-title p {
+    font-size: 16px;
+    color: #64748b;
+    font-weight: 400;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+
+  .feature-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 28px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+  }
+
+  .feature-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+
+  .feature-icon.blue { background: #dbeafe; color: #2563eb; }
+  .feature-icon.purple { background: #ede9fe; color: #7c3aed; }
+  .feature-icon.teal { background: #ccfbf1; color: #0d9488; }
+  .feature-icon.orange { background: #ffedd5; color: #ea580c; }
+  .feature-icon.green { background: #d1fae5; color: #059669; }
+  .feature-icon.red { background: #fee2e2; color: #e11d48; }
+  .feature-icon.indigo { background: #e0e7ff; color: #4f46e5; }
+  .feature-icon.cyan { background: #cffafe; color: #0891b2; }
+  .feature-icon.pink { background: #fce7f3; color: #db2777; }
+
+  .feature-card h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 8px;
+  }
+
+  .feature-card p {
+    font-size: 14px;
+    color: #64748b;
+    line-height: 1.6;
+  }
+
+  .feature-card ul {
+    list-style: none;
+    margin-top: 10px;
+  }
+
+  .feature-card ul li {
+    font-size: 13px;
+    color: #475569;
+    padding: 4px 0;
+    padding-left: 20px;
+    position: relative;
+  }
+
+  .feature-card ul li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: #2563eb;
+    font-weight: 700;
+  }
+
+  /* ===== HIGHLIGHT BANNER ===== */
+  .highlight-banner {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    color: white;
+    padding: 50px;
+    display: flex;
+    align-items: center;
+    gap: 40px;
+  }
+
+  .highlight-banner .left { flex: 1; }
+
+  .highlight-banner h2 {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 12px;
+  }
+
+  .highlight-banner p {
+    font-size: 16px;
+    opacity: 0.8;
+    line-height: 1.6;
+  }
+
+  .highlight-banner .right {
+    display: flex;
+    gap: 20px;
+  }
+
+  .highlight-stat {
+    text-align: center;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 20px 28px;
+    border-radius: 14px;
+  }
+
+  .highlight-stat .num {
+    font-size: 36px;
+    font-weight: 900;
+    color: #60a5fa;
+  }
+
+  .highlight-stat .label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.6;
+    margin-top: 4px;
+  }
+
+  /* ===== MODULES SECTION ===== */
+  .modules {
+    padding: 60px 50px;
+    background: #f8fafc;
+  }
+
+  .modules-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .module-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    background: white;
+    border-radius: 14px;
+    padding: 20px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .module-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .module-content h4 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 4px;
+  }
+
+  .module-content p {
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.5;
+  }
+
+  /* ===== CTA SECTION ===== */
+  .cta {
+    background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+    color: white;
+    padding: 50px;
+    text-align: center;
+  }
+
+  .cta h2 {
+    font-size: 30px;
+    font-weight: 800;
+    margin-bottom: 12px;
+  }
+
+  .cta p {
+    font-size: 16px;
+    opacity: 0.9;
+    margin-bottom: 24px;
+  }
+
+  .cta-buttons {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+  }
+
+  .cta-btn {
+    background: white;
+    color: #2563eb;
+    padding: 12px 28px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cta-btn.outline {
+    background: transparent;
+    border: 2px solid rgba(255,255,255,0.4);
+    color: white;
+  }
+
+  /* ===== FOOTER ===== */
+  .footer {
+    background: #0f172a;
+    color: #94a3b8;
+    padding: 30px 50px;
+    text-align: center;
+    font-size: 13px;
+  }
+
+  .footer strong { color: white; }
+
+  /* ===== PRINT STYLES ===== */
+  @media print {
+    body { background: white; }
+    .pamphlet { box-shadow: none; max-width: 100%; }
+    .feature-card:hover { transform: none; box-shadow: none; }
+    @page { margin: 0; size: A4; }
+  }
+
+  @media (max-width: 768px) {
+    .features-grid { grid-template-columns: 1fr; }
+    .modules-grid { grid-template-columns: 1fr; }
+    .highlight-banner { flex-direction: column; }
+    .hero h1 { font-size: 36px; }
+    .stats-bar { flex-wrap: wrap; gap: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="pamphlet">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-content">
+      <div class="hero-badge">🚀 Now Available</div>
+      <h1>Vibro<br><span class="accent">Operational Excellence,</span> Simplified.</h1>
+      <p>The all-in-one platform for smart forms, audit management, task planning, team training, and real-time operational insights.</p>
+      <div class="hero-platforms">
+        <div class="platform-badge"><span class="icon">📱</span> iOS & Android</div>
+        <div class="platform-badge"><span class="icon">💻</span> Web Admin Console</div>
+        <div class="platform-badge"><span class="icon">☁️</span> Cloud-Powered</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <div class="stat-number">15+</div>
+      <div class="stat-label">Question Types</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">7</div>
+      <div class="stat-label">Core Modules</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">100%</div>
+      <div class="stat-label">Customizable</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">Real-time</div>
+      <div class="stat-label">Dashboard</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">GPS</div>
+      <div class="stat-label">Verified</div>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <div class="features">
+    <div class="section-title">
+      <h2>Everything You Need in One Platform</h2>
+      <p>From field inspections to team training — Vibro covers your entire operational workflow</p>
+    </div>
+
+    <div class="features-grid">
+
+      <div class="feature-card">
+        <div class="feature-icon blue">📝</div>
+        <h3>Smart Forms & Audits</h3>
+        <p>Build intelligent forms with conditional logic, auto-scoring, and real-time validation.</p>
+        <ul>
+          <li>15+ question types</li>
+          <li>Conditional logic branching</li>
+          <li>Auto-calculated audit scores</li>
+          <li>Pass/Fail percentage tracking</li>
+          <li>Critical item monitoring</li>
+        </ul>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon purple">🎯</div>
+        <h3>Drag-and-Drop Form Builder</h3>
+        <p>Design any form in minutes with our visual builder on the web console.</p>
+        <ul>
+          <li>Visual question editor</li>
+          <li>Bulk import via Excel</li>
+          <li>Formula fields</li>
+          <li>File, photo & video uploads</li>
+          <li>Digital signatures</li>
+          <li>QR code scanning</li>
+        </ul>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon teal">📅</div>
+        <h3>Smart Planner</h3>
+        <p>Assign tasks to teams with deadlines, repeat schedules, and smart notifications.</p>
+        <ul>
+          <li>Multi-user assignment</li>
+          <li>Repeat scheduling</li>
+          <li>Early notification alerts</li>
+          <li>First-come-first-served claiming</li>
+          <li>Folder organization</li>
+          <li>Advanced filtering</li>
+        </ul>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon orange">🎓</div>
+        <h3>Learn & Train</h3>
+        <p>Assign quizzes, videos, and training modules. Track progress and issue certificates.</p>
+        <ul>
+          <li>Quiz assignments</li>
+          <li>Video training modules</li>
+          <li>Scheduled training sessions</li>
+          <li>Auto-generated certificates</li>
+          <li>Progress tracking</li>
+          <li>Check-in verification</li>
+        </ul>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon green">✅</div>
+        <h3>Follow-up Tasks</h3>
+        <p>Automatically generate tasks from audit findings and track them to completion.</p>
+        <ul>
+          <li>Auto-create from audit answers</li>
+          <li>Assign to users, groups, or locations</li>
+          <li>Task close-out questions</li>
+          <li>Deadline tracking</li>
+          <li>Observation & photo logging</li>
+        </ul>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon red">📍</div>
+        <h3>GPS & Location Intelligence</h3>
+        <p>Capture location data on every submission and assign forms by location.</p>
+        <ul>
+          <li>GPS-tagged form submissions</li>
+          <li>Location-based form assignment</li>
+          <li>Location leader management</li>
+          <li>Attendance tracking</li>
+        </ul>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon indigo">📊</div>
+        <h3>Real-time Dashboards</h3>
+        <p>Monitor your entire operation with live data and actionable insights.</p>
+        <ul>
+          <li>Form submission tracking</li>
+          <li>Audit score summaries</li>
+          <li>Checkpoint statistics</li>
+          <li>Follow-up task summaries</li>
+          <li>Export & share reports</li>
+        </ul>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon cyan">📢</div>
+        <h3>Announcements & Polls</h3>
+        <p>Keep your organization connected with broadcast messages and instant feedback.</p>
+        <ul>
+          <li>Organization-wide announcements</li>
+          <li>Interactive polls</li>
+          <li>Real-time results</li>
+          <li>Targeted distribution</li>
+        </ul>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon pink">🔐</div>
+        <h3>Admin & Access Control</h3>
+        <p>Complete control over users, groups, and organizational hierarchy.</p>
+        <ul>
+          <li>User management</li>
+          <li>Group & location management</li>
+          <li>Role-based access control</li>
+          <li>Stage-level permissions</li>
+          <li>Multi-organization support</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- HIGHLIGHT BANNER -->
+  <div class="highlight-banner">
+    <div class="left">
+      <h2>Built for Field Teams, Loved by Managers</h2>
+      <p>Whether you're conducting safety audits, managing field inspections, or training your workforce — Vibro adapts to your workflow, not the other way around.</p>
+    </div>
+    <div class="right">
+      <div class="highlight-stat">
+        <div class="num">0s</div>
+        <div class="label">Form Load Time</div>
+      </div>
+      <div class="highlight-stat">
+        <div class="num">24/7</div>
+        <div class="label">Cloud Access</div>
+      </div>
+      <div class="highlight-stat">
+        <div class="num">∞</div>
+        <div class="label">Scalability</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODULES -->
+  <div class="modules">
+    <div class="section-title">
+      <h2>7 Powerful Modules. One App.</h2>
+      <p>Everything your organization needs to achieve operational excellence</p>
+    </div>
+
+    <div class="modules-grid">
+      <div class="module-item">
+        <div class="module-icon" style="background:#dbeafe;color:#2563eb;">🏠</div>
+        <div class="module-content">
+          <h4>Home Dashboard</h4>
+          <p>Bird's-eye view of all activities — pending forms, active planners, task summaries, and recent announcements.</p>
+        </div>
+      </div>
+
+      <div class="module-item">
+        <div class="module-icon" style="background:#ccfbf1;color:#0d9488;">📋</div>
+        <div class="module-content">
+          <h4>Forms & Audits</h4>
+          <p>Complete form management with folders, multi-stage forms, audit groups, conditional logic, and auto-scoring.</p>
+        </div>
+      </div>
+
+      <div class="module-item">
+        <div class="module-icon" style="background:#e0e7ff;color:#4f46e5;">📅</div>
+        <div class="module-content">
+          <h4>Planner</h4>
+          <p>Task assignment with repeat scheduling, team sharing, folder organization, and advanced filtering.</p>
+        </div>
+      </div>
+
+      <div class="module-item">
+        <div class="module-icon" style="background:#ffedd5;color:#ea580c;">✓</div>
+        <div class="module-content">
+          <h4>To-Do</h4>
+          <p>Personal task tracker with follow-up tasks generated from audit findings and form submissions.</p>
+        </div>
+      </div>
+
+      <div class="module-item">
+        <div class="module-icon" style="background:#d1fae5;color:#059669;">🎓</div>
+        <div class="module-content">
+          <h4>Learn</h4>
+          <p>Training module with quizzes, videos, scheduled sessions, certificates, and progress tracking.</p>
+        </div>
+      </div>
+
+      <div class="module-item">
+        <div class="module-icon" style="background:#ede9fe;color:#7c3aed;">📊</div>
+        <div class="module-content">
+          <h4>Polls</h4>
+          <p>Interactive polls with real-time results. Gather feedback and make data-driven decisions.</p>
+        </div>
+      </div>
+
+      <div class="module-item">
+        <div class="module-icon" style="background:#fee2e2;color:#e11d48;">❓</div>
+        <div class="module-content">
+          <h4>Guides</h4>
+          <p>Built-in help and guides to get your team up to speed quickly with all platform features.</p>
+        </div>
+      </div>
+
+      <div class="module-item">
+        <div class="module-icon" style="background:#cffafe;color:#0891b2;">💬</div>
+        <div class="module-content">
+          <h4>Chat & Collaboration</h4>
+          <p>In-app messaging to keep teams connected. Discuss findings, share updates, and resolve issues fast.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta">
+    <h2>Ready to Transform Your Operations?</h2>
+    <p>Join organizations already using Vibro to achieve operational excellence.</p>
+    <div class="cta-buttons">
+      <a href="#" class="cta-btn">📱 Download on App Store</a>
+      <a href="#" class="cta-btn">📱 Get on Google Play</a>
+      <a href="#" class="cta-btn outline">💻 Visit Web Console</a>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <strong>Vibro</strong> — Operational Excellence Platform &nbsp;|&nbsp; iOS &bull; Android &bull; Web<br>
+    Contact: [your-email@company.com] &nbsp;|&nbsp; [your-website.com] &nbsp;|&nbsp; [phone number]<br><br>
+    &copy; 2026 Vibro. All rights reserved.
+  </div>
+
+</div>
+
+</body>
+</html>

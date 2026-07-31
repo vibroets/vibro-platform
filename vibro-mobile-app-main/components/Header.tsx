@@ -1,0 +1,126 @@
+import type { DrawerNavigationProp } from "@react-navigation/drawer";
+import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
+import React from "react";
+import {
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import Ionicons from "react-native-vector-icons/Ionicons";
+import Icon from "react-native-vector-icons/MaterialIcons";
+
+interface HeaderProps {
+  title?: string;
+  showBack?: boolean;
+  showNotification?: boolean;
+  onMenuPress?: () => void;
+  onBackPress?: () => void;
+  onNotificationPress?: () => void;
+  isTransparent?: boolean;
+}
+
+type RootDrawerParamList = {
+  "(tabs)": undefined;
+};
+
+export const Header: React.FC<HeaderProps> = ({
+  title,
+  onBackPress,
+  onMenuPress,
+  showNotification = true,
+  showBack = false,
+  isTransparent = false,
+}) => {
+  const navigation = useNavigation<DrawerNavigationProp<RootDrawerParamList>>();
+  const router = useRouter() as { push: (href: string) => void };
+  const handleMenuPress = () => {
+    if (onMenuPress) {
+      onMenuPress();
+      return;
+    }
+    const drawerNav = navigation as unknown as { openDrawer?: () => void };
+    if (drawerNav?.openDrawer) {
+      drawerNav.openDrawer();
+      return;
+    }
+    const globalDrawer = (global as any)?.drawerNavigation;
+    if (globalDrawer?.openDrawer) {
+      globalDrawer.openDrawer();
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="#2196f3" />
+      <View style={styles.container}>
+        {!isTransparent && (
+          <>
+            {showBack ? (
+              <TouchableOpacity onPress={onBackPress} style={styles.iconButton}>
+                <Icon name="arrow-back" size={24} color="#ffffff" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={handleMenuPress}
+                style={styles.iconButton}
+              >
+                <Ionicons name="menu" size={24} color="#ffffff" />
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+
+        <View style={styles.titleWrapper}>
+          <Text style={styles.title}>{title}</Text>
+        </View>
+
+        {showNotification && !isTransparent ? (
+          <TouchableOpacity
+            onPress={() => router.push("/(app)/screens/Notification/notification")}
+            style={styles.iconButton}
+          >
+            <Ionicons name="notifications-outline" size={24} color="#ffffff" />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.iconButton} /> // empty view to balance layout
+        )}
+      </View>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  safeArea: {
+    backgroundColor: "#2196f3",
+  },
+  container: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 56,
+    paddingHorizontal: 16,
+    backgroundColor: "#2196f3",
+    position: "relative",
+  },
+  iconButton: {
+    padding: 8,
+    zIndex: 1, // ensure it's tappable
+  },
+  titleWrapper: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#ffffff",
+    textAlign: "center",
+  },
+});

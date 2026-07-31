@@ -1,0 +1,14 @@
+# Environment files (never commit these!)
+.env
+.env.local
+.env.production
+
+# SSL certificates
+nginx/certs/*.pem
+nginx/certs/*.key
+
+# Docker volumes
+volumes/
+
+# Logs
+*.log

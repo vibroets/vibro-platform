@@ -1,0 +1,109 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-vibro}
+      POSTGRES_USER: ${POSTGRES_USER:-vibro}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vibro_pass_2024}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vibro}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../vibro-backend-main
+      dockerfile: ../deploy/Dockerfile.backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DEBUG=False
+      - DB_ENGINE=django.db.backends.postgresql
+      - DB_NAME=${POSTGRES_DB:-vibro}
+      - DB_USER=${POSTGRES_USER:-vibro}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-vibro_pass_2024}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ALLOWED_HOSTS=www.vibroets.com,vibroets.com,localhost,127.0.0.1
+      - CORS_ALLOWED_ORIGINS=https://www.vibroets.com,https://vibroets.com
+      - SECRET_KEY=${DJANGO_SECRET_KEY:-change-me-in-production}
+    volumes:
+      - backend_media:/app/media
+      - backend_static:/app/staticfiles
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  frontend:
+    build:
+      context: ../vibro-frontend-main
+      dockerfile: ../deploy/Dockerfile.frontend
+      args:
+        - NEXT_PUBLIC_API_URL=https://www.vibroets.com/api
+    restart: always
+    depends_on:
+      - backend
+    environment:
+      - NEXT_PUBLIC_API_URL=https://www.vibroets.com/api
+      - NODE_ENV=production
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_conf:/etc/letsencrypt:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_conf:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_media:
+  backend_static:
+  certbot_www:
+  certbot_conf:

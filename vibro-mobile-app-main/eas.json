@@ -1,0 +1,48 @@
+{
+  "cli": {
+    "version": ">= 3.13.2",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "ios": {},
+      "channel": "preview"
+    },
+    "preview-apk": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "preview-apk"
+    },
+    "preview-apk-android": {
+      "developmentClient": true,
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "preview-apk-android"
+    },
+    "preview3": {
+      "developmentClient": true,
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "preview3"
+    },
+    "preview4": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "preview4"
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "ios": {},
+      "channel": "production"
+    }
+  }
+}
