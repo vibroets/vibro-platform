@@ -48,9 +48,7 @@ coverage.xml
 *.cover
 *.py,cover
 
-# Django migrations
-**/migrations/*.py
-**/migrations/*.pyc
+# Django migrations (keep them tracked in git)
 **/migrations/__pycache__/
 
 # Static files

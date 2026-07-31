@@ -1659,11 +1659,12 @@ class AvailableAdminsView(APIView):
     # permission_classes = [IsAuthenticated ,IsSuperAdmin]
 
     def get(self, request):
-        adminRole = Role.objects.get(name=USER_ROLES['ADMIN'])
-        superadminRole = Role.objects.get(name=USER_ROLES['SUPER_ADMIN'])
+        try:
+            adminRole = Role.objects.get(name=USER_ROLES['ADMIN'])
+        except Role.DoesNotExist:
+            return Response({'error': 'Admin role not found in database.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        print(adminRole, superadminRole)
-        admins = CustomUser.objects.filter(role=adminRole) # | CustomUser.objects.filter(role=superadminRole)
+        admins = CustomUser.objects.filter(role=adminRole)
         serializer = UserSerializer(admins, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
@@ -1671,8 +1672,12 @@ class AvailableEndUserView(APIView):
     # permission_classes = [IsAuthenticated, IsSuperAdmin]
 
     def get(self, request):
+        try:
+            end_user_role = Role.objects.get(name=USER_ROLES['END_USER'])
+        except Role.DoesNotExist:
+            return Response({'error': 'End user role not found in database.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         serializer = UserSerializer(
-            CustomUser.objects.filter(role=Role.objects.get(name=USER_ROLES['END_USER'])),
+            CustomUser.objects.filter(role=end_user_role),
             many=True
         )
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -2258,7 +2263,10 @@ class BulkUserImportView(APIView):
             user_data["username"] = email or phone
 
             # Set default role (end_user) and organization
-            end_user_role = Role.objects.get(name="end_user")
+            try:
+                end_user_role = Role.objects.get(name="end_user")
+            except Role.DoesNotExist:
+                return Response({'error': 'End user role not found in database. Please seed roles.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             user_data["role"] = end_user_role
             user_data["organization"] = org_to_use
 
@@ -2337,7 +2345,10 @@ class PromoteToLocationLeaderView(APIView):
             password = serializer.validated_data.get('password')  # May be None
             password_int = int(password) if password else None
             # Fetch the location_leader role dynamically
-            location_leader_role = Role.objects.get(name=USER_ROLES['LOCATION_LEADER'])
+            try:
+                location_leader_role = Role.objects.get(name=USER_ROLES['LOCATION_LEADER'])
+            except Role.DoesNotExist:
+                return Response({'error': 'Location leader role not found in database.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             promoted_count = 0
             for user_id in user_ids:
                 user = CustomUser.objects.get(id=user_id)
@@ -2373,7 +2384,10 @@ class DePromoteLocationLeaderView(APIView):
             user = CustomUser.objects.get(id=user_id)
             if user.role.name != USER_ROLES['LOCATION_LEADER']:
                 return Response({'error': 'User is not a location leader.'}, status=status.HTTP_400_BAD_REQUEST)
-            user_role = Role.objects.get(name=USER_ROLES['END_USER'])  # Change to end_user (role ID 3)
+            try:
+                user_role = Role.objects.get(name=USER_ROLES['END_USER'])
+            except Role.DoesNotExist:
+                return Response({'error': 'End user role not found in database.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             user.role = user_role
             user.save()
             LocationLeader.objects.filter(user=user).delete()  # Remove location leader entry
@@ -2392,7 +2406,10 @@ class ReassignLocationLeaderView(APIView):
             location_id = serializer.validated_data['location_id']  # Optional, if location changes
             current_leader = LocationLeader.objects.get(user__id=user_id)
             new_user = CustomUser.objects.get(id=new_user_id)
-            location_leader_role = Role.objects.get(name=USER_ROLES['LOCATION_LEADER'])
+            try:
+                location_leader_role = Role.objects.get(name=USER_ROLES['LOCATION_LEADER'])
+            except Role.DoesNotExist:
+                return Response({'error': 'Location leader role not found in database.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             new_user.role = location_leader_role
             new_user.save()
             LocationLeader.objects.update_or_create(

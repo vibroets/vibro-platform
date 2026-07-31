@@ -889,9 +889,12 @@ class OrganizationSerializer(serializers.ModelSerializer):
                     invalid_ids.append(user_id)
                 elif user.role.name == 'end_user':
                     # Promote end_user to admin
-                    admin_role = Role.objects.get(name='admin')
-                    user.role = admin_role
-                    user.save()
+                    try:
+                        admin_role = Role.objects.get(name='admin')
+                        user.role = admin_role
+                        user.save()
+                    except Role.DoesNotExist:
+                        raise serializers.ValidationError("Role 'admin' does not exist in the database.")
             except CustomUser.DoesNotExist:
                 invalid_ids.append(user_id)
         
