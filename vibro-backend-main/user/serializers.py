@@ -659,7 +659,8 @@ class RegularGroupSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         members = validated_data.pop('members', [])
-        group =  Groups.objects.create(type=GROUP_TYPES.NORMAL, **validated_data)
+        validated_data.setdefault('type', GROUP_TYPES.NORMAL)
+        group = Groups.objects.create(**validated_data)
         group.members.set(members)
         return group
 
@@ -692,7 +693,8 @@ class RuleBasedGroupSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         conditions_data = validated_data.pop('conditions', [])
         members = validated_data.pop('members', [])
-        group = Groups.objects.create(type=GROUP_TYPES.RULEBASED, **validated_data)
+        validated_data.setdefault('type', GROUP_TYPES.RULEBASED)
+        group = Groups.objects.create(**validated_data)
         group.members.set(members)
 
         for condition_data in conditions_data:
