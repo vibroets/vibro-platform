@@ -1761,66 +1761,7 @@ class FormFastView(APIView):
             file.status = FormPayloadFiles.Status.SUCCESS
             file.save()
 
-        # Re-fetch with optimized prefetch tree for fast serialization
-        base = (
-            Form.objects
-            .filter(is_deleted=False, pk=instance.id)
-            .select_related('folder', 'form_admin', 'deletedBy', 'archivedBy')
-        )
-
-        stage_access_qs = StageAccess.objects.select_related('allow_user', 'allow_group', 'form', 'stage')
-        if instance.form_type == FormType.AUDIT:
-            qs = base.prefetch_related(
-                'assignee__user', 'assignee__group', 'assignee__leader',
-                'audit_info__questions',
-                'audit_info__questions__options',
-                'audit_info__questions__child_questions',
-                'audit_info__questions__child_questions__options',
-                'audit_info__questions__logic_parent_question__logic_questions__options',
-                'audit_info__questions__logic_parent_question__follow_ups',
-                'audit_info__questions__logic_parent_question__follow_ups__task_close_questions__options',
-                'audit_group__questions',
-                'audit_group__questions__options',
-                'audit_group__questions__child_questions',
-                'audit_group__questions__child_questions__options',
-                'audit_group__questions__logic_parent_question__logic_questions__options',
-                'audit_group__questions__logic_parent_question__follow_ups',
-                'audit_group__questions__logic_parent_question__follow_ups__task_close_questions__options',
-            )
-        else:
-            question_qs = (
-                Question.objects
-                .select_related('form', 'stage', 'parent_question')
-                .prefetch_related(
-                    'options',
-                    'child_questions',
-                    'child_questions__options',
-                    'child_questions__child_questions',
-                    'child_questions__child_questions__options',
-                    'child_questions__logic_parent_question__logic_questions__options',
-                    'child_questions__logic_parent_question__follow_ups',
-                    'child_questions__logic_parent_question__follow_ups__task_close_questions__options',
-                    'logic_parent_question__logic_questions__options',
-                    'logic_parent_question__follow_ups',
-                    'logic_parent_question__follow_ups__task_close_questions__options',
-                )
-            )
-            stage_qs = (
-                Stage.objects
-                .select_related('form')
-                .prefetch_related(
-                    models.Prefetch('access_parent_stage', queryset=stage_access_qs),
-                    models.Prefetch('questions', queryset=question_qs),
-                )
-            )
-            qs = base.prefetch_related(
-                'assignee__user', 'assignee__group', 'assignee__leader',
-                models.Prefetch('stages', queryset=stage_qs),
-            )
-
-        optimized_instance = get_object_or_404(qs)
-        response_serializer = self.get_serializer(optimized_instance)
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        return Response({'id': instance.id, 'title': instance.title, 'form_type': instance.form_type}, status=status.HTTP_201_CREATED)
     
     @transaction.atomic
     def update(self, request, *args, **kwargs):
@@ -1865,9 +1806,7 @@ class FormFastView(APIView):
         file.save()
 
 
-        # Return the updated form data
-        response_serializer = self.get_serializer(updated_form)
-        return Response(response_serializer.data, status=status.HTTP_200_OK)
+        return Response({'id': updated_form.id, 'title': updated_form.title, 'form_type': updated_form.form_type}, status=status.HTTP_200_OK)
     
     def destroy(self, request, *args, **kwargs):
         raise MethodNotAllowed("DELETE")
