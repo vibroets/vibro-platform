@@ -29,7 +29,9 @@ import * as Linking from "expo-linking";
 import { useSelector } from "react-redux";
 import { RootState } from "../Redux/reducer/rootReducer";
 
-const SERVER_BASE = "http://192.168.1.3:8000";
+import { MEDIA_BASE_URL } from "../services";
+
+const SERVER_BASE = MEDIA_BASE_URL;
 
 const getFullUrl = (url: string | null): string | null => {
   if (!url) return null;

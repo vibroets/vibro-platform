@@ -1,6 +1,7 @@
 import { SecureStoreService, SecureStoreKeys } from "./secureStore";
+import { MEDIA_BASE_URL } from "./index";
 
-const WS_BASE_URL = "ws://192.168.1.3:8000/ws/chat/notifications";
+const WS_BASE_URL = MEDIA_BASE_URL.replace(/^http/, "ws") + "/ws/chat/notifications";
 const RECONNECT_BASE_DELAY = 3000;
 const RECONNECT_MAX_DELAY = 30000;
 const PING_INTERVAL = 25000;
