@@ -10,6 +10,9 @@ const BASE_URL = "https://www.vibroets.com/api"; // production
 // const BASE_URL = "http://localhost:8000/api"; // iOS Simulator
 // const BASE_URL = "http://10.0.2.2:8000/api"; // Android Emulator
 
+// Derive media base URL (strip /api suffix)
+export const MEDIA_BASE_URL = BASE_URL.replace(/\/api\/?$/, "");
+
 // Create axios instance with base configuration
 const api: AxiosInstance = axios.create({
   baseURL: BASE_URL,

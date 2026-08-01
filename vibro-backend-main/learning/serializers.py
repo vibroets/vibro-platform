@@ -168,7 +168,7 @@ class VideoContentSerializer(serializers.ModelSerializer):
 class TrainingItemSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField(read_only=True)
     content_url = serializers.URLField(required=False, allow_null=True, allow_blank=True)
-    file_url = serializers.URLField(required=False, allow_null=True, allow_blank=True)
+    file_url = serializers.SerializerMethodField(read_only=True)
     description = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     follow_up_type = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     follow_up_id = serializers.CharField(required=False, allow_null=True, allow_blank=True)
@@ -176,7 +176,7 @@ class TrainingItemSerializer(serializers.ModelSerializer):
     # camelCase aliases for frontend compatibility
     assetType = serializers.CharField(source='asset_type', required=False, default='document')
     sourceType = serializers.CharField(source='source_type', required=False, default='url')
-    fileUrl = serializers.URLField(source='file_url', required=False, allow_null=True, allow_blank=True)
+    fileUrl = serializers.SerializerMethodField(read_only=True)
     allowDownload = serializers.BooleanField(source='allow_download', required=False, default=False)
     allowPrint = serializers.BooleanField(source='allow_print', required=False, default=False)
     allowShare = serializers.BooleanField(source='allow_share', required=False, default=False)
@@ -211,6 +211,18 @@ class TrainingItemSerializer(serializers.ModelSerializer):
 
     def get_created_by_name(self, obj):
         return f"{obj.created_by.first_name} {obj.created_by.last_name}".strip() if obj.created_by else None
+
+    def get_file_url(self, obj):
+        request = self.context.get('request')
+        if obj.file and hasattr(obj.file, 'url'):
+            url = obj.file.url
+            if request:
+                return request.build_absolute_uri(url)
+            return url
+        return obj.content_url or None
+
+    def get_fileUrl(self, obj):
+        return self.get_file_url(obj)
 
 
 class TrainingScheduleSerializer(serializers.ModelSerializer):

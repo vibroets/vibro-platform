@@ -18,13 +18,13 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import QRCodeSVG from "react-native-qrcode-svg";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import api from "../../../services";
+import api, { MEDIA_BASE_URL } from "../../../services";
 import QuizScreen from "../../../components/QuizScreen";
 
 const getMediaUrl = (url: string | null | undefined): string | null => {
   if (!url) return null;
   if (url.startsWith("http")) return url;
-  return `http://192.168.1.3:8000${url}`;
+  return `${MEDIA_BASE_URL}${url}`;
 };
 
 const getVideoProgressKey = (scheduleId: any, contentId: any, contentType: string) => `video_progress_sched_${scheduleId != null ? scheduleId : 'direct'}_${contentType}_${contentId}`;
@@ -454,7 +454,7 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
         <View style={{ flex: 1 }}>
           <WebView
             originWhitelist={["*"]}
-            source={videoHtml ? { html: videoHtml, baseUrl: "http://192.168.1.3:8000/" } : { uri: finalUrl }}
+            source={videoHtml ? { html: videoHtml, baseUrl: `${MEDIA_BASE_URL}/` } : { uri: finalUrl }}
             javaScriptEnabled={true}
             domStorageEnabled={true}
             allowsInlineMediaPlayback={true}
