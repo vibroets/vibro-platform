@@ -644,11 +644,21 @@ export default function LearnScreen() {
   };
 
   const isContentCompleted = (content: any) => {
-    return myResults.some((r: any) => String(r.content_id) === String(content.id) && r.content_type === content.type && r.status === "passed");
+    const direct = myResults.some((r: any) => String(r.content_id) === String(content.id) && r.content_type === content.type && r.status === "passed");
+    if (direct) return true;
+    if (content.follow_up_type && content.follow_up_id) {
+      return myResults.some((r: any) => String(r.content_id) === String(content.follow_up_id) && r.content_type === content.follow_up_type && r.status === "passed");
+    }
+    return false;
   };
 
   const isQuizFullyCompleted = (content: any) => {
-    return myResults.some((r: any) => String(r.content_id) === String(content.id) && r.content_type === content.type && r.status === "passed" && r.total_questions > 0);
+    const direct = myResults.some((r: any) => String(r.content_id) === String(content.id) && r.content_type === content.type && r.status === "passed" && r.total_questions > 0);
+    if (direct) return true;
+    if (content.follow_up_type && content.follow_up_id) {
+      return myResults.some((r: any) => String(r.content_id) === String(content.follow_up_id) && r.content_type === content.follow_up_type && r.status === "passed" && r.total_questions > 0);
+    }
+    return false;
   };
 
   const handleScheduleContentPress = (content: any) => {
@@ -766,10 +776,14 @@ export default function LearnScreen() {
       const linkedContent = selectedSchedule.linked_content || [];
       const isCompletedFresh = (content: any) => {
         const hasQs = content.questions && Array.isArray(content.questions) && content.questions.length > 0;
-        if (hasQs) {
-          return results.some((r: any) => String(r.content_id) === String(content.id) && r.content_type === content.type && r.status === "passed" && r.total_questions > 0);
+        const matches = (r: any, cid: any, ctype: any, requireQ: boolean) =>
+          String(r.content_id) === String(cid) && r.content_type === ctype && r.status === "passed" && (!requireQ || r.total_questions > 0);
+        const direct = results.some((r: any) => matches(r, content.id, content.type, hasQs));
+        if (direct) return true;
+        if (content.follow_up_type && content.follow_up_id) {
+          return results.some((r: any) => matches(r, content.follow_up_id, content.follow_up_type, hasQs));
         }
-        return results.some((r: any) => String(r.content_id) === String(content.id) && r.content_type === content.type && r.status === "passed");
+        return false;
       };
       const nextContent = linkedContent.find((c: any) =>
         !isCompletedFresh(c) && String(c.id) !== String(video.id)
@@ -826,10 +840,14 @@ export default function LearnScreen() {
             const linkedContent = quizScheduleContext.linked_content || [];
             const isCompletedFresh = (content: any) => {
               const hasQs = content.questions && Array.isArray(content.questions) && content.questions.length > 0;
-              if (hasQs) {
-                return results.some((r: any) => String(r.content_id) === String(content.id) && r.content_type === content.type && r.status === "passed" && r.total_questions > 0);
+              const matches = (r: any, cid: any, ctype: any, requireQ: boolean) =>
+                String(r.content_id) === String(cid) && r.content_type === ctype && r.status === "passed" && (!requireQ || r.total_questions > 0);
+              const direct = results.some((r: any) => matches(r, content.id, content.type, hasQs));
+              if (direct) return true;
+              if (content.follow_up_type && content.follow_up_id) {
+                return results.some((r: any) => matches(r, content.follow_up_id, content.follow_up_type, hasQs));
               }
-              return results.some((r: any) => String(r.content_id) === String(content.id) && r.content_type === content.type && r.status === "passed");
+              return false;
             };
             const nextContent = linkedContent.find((c: any) =>
               !isCompletedFresh(c) && String(c.id) !== String(quiz.id)
@@ -1380,12 +1398,17 @@ export default function LearnScreen() {
                 {completedSchedules.map((sched: any, index: number) => {
                   const att = sched.my_attendance;
                   const checkOut = att?.check_out_time ? new Date(att.check_out_time).toLocaleDateString() : "";
-                  // Find quiz results for this schedule's linked content
+                  // Find quiz results for this schedule's linked content (including follow-up targets)
                   const linkedContent = sched.linked_content || [];
-                  const linkedIds = linkedContent.map((c: any) => String(c.id));
-                  const linkedTypes = linkedContent.map((c: any) => c.type);
+                  const matchPairs: { id: string; type: string }[] = [];
+                  for (const c of linkedContent) {
+                    matchPairs.push({ id: String(c.id), type: c.type });
+                    if (c.follow_up_type && c.follow_up_id) {
+                      matchPairs.push({ id: String(c.follow_up_id), type: c.follow_up_type });
+                    }
+                  }
                   const schedResults = myResults.filter((r: any) =>
-                    linkedIds.includes(String(r.content_id)) && linkedTypes.includes(r.content_type) && r.total_questions > 0
+                    matchPairs.some((p) => p.id === String(r.content_id) && p.type === r.content_type) && r.total_questions > 0
                   );
                   const bestResult = schedResults.length > 0
                     ? schedResults.reduce((best: any, r: any) => (r.score > (best?.score || 0) ? r : best), schedResults[0])
