@@ -38,6 +38,7 @@ function* verifyOtpSaga(action: any): Generator<any, void, any> {
       const organizationId =
         authInfo.user.organizationId ??
         authInfo.user.organization_id ??
+        (typeof authInfo.user.organization === "number" ? authInfo.user.organization : null) ??
         authInfo.user.organization?.id ??
         null;
       const organizationName =
