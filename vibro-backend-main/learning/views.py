@@ -326,7 +326,8 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
     @action(detail=False, methods=['get'], url_path='my-results')
     def my_results(self, request):
         user = request.user
-        results = QuizResult.objects.filter(user=user).order_by('-completed_at')
+        # Exclude video-only completions (total_questions=0) — those are silent records
+        results = QuizResult.objects.filter(user=user, total_questions__gt=0).order_by('-completed_at')
         return Response(QuizResultSerializer(results, many=True).data, status=status.HTTP_200_OK)
 
     # --- MY CERTIFICATES (for mobile app) ---

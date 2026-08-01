@@ -1380,6 +1380,19 @@ export default function LearnScreen() {
                 {completedSchedules.map((sched: any, index: number) => {
                   const att = sched.my_attendance;
                   const checkOut = att?.check_out_time ? new Date(att.check_out_time).toLocaleDateString() : "";
+                  // Find quiz results for this schedule's linked content
+                  const linkedContent = sched.linked_content || [];
+                  const linkedIds = linkedContent.map((c: any) => String(c.id));
+                  const linkedTypes = linkedContent.map((c: any) => c.type);
+                  const schedResults = myResults.filter((r: any) =>
+                    linkedIds.includes(String(r.content_id)) && linkedTypes.includes(r.content_type) && r.total_questions > 0
+                  );
+                  const bestResult = schedResults.length > 0
+                    ? schedResults.reduce((best: any, r: any) => (r.score > (best?.score || 0) ? r : best), schedResults[0])
+                    : null;
+                  const scorePct = bestResult ? Math.round((bestResult.correct_answers / bestResult.total_questions) * 100) : null;
+                  const timeMin = bestResult ? Math.floor((bestResult.time_taken || 0) / 60) : 0;
+                  const timeSec = bestResult ? (bestResult.time_taken || 0) % 60 : 0;
                   return (
                     <View key={`completed-sched-${sched.id}-${index}`} style={styles.resultCard}>
                       <View style={styles.resultCardHeader}>
@@ -1396,9 +1409,19 @@ export default function LearnScreen() {
                             </View>
                           </View>
                         </View>
+                        {scorePct !== null && (
+                          <Text style={styles.resultScore}>{scorePct}%</Text>
+                        )}
                       </View>
                       <View style={styles.resultCardFooter}>
-                        <Text style={styles.resultMeta}>Present</Text>
+                        {bestResult ? (
+                          <>
+                            <Text style={styles.resultMeta}>{bestResult.correct_answers}/{bestResult.total_questions}</Text>
+                            <Text style={styles.resultMeta}>{timeMin}m {timeSec}s</Text>
+                          </>
+                        ) : (
+                          <Text style={styles.resultMeta}>Present</Text>
+                        )}
                         <Text style={styles.resultMeta}>{checkOut}</Text>
                       </View>
                     </View>
