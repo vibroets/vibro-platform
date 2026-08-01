@@ -91,6 +91,12 @@ def _is_local_host(host):
     return host.split(":")[0].lower() in {"localhost", "127.0.0.1", "0.0.0.0"}
 
 
+def _media_url(path):
+    """Build a public media URL using BACKEND_BASE_URL from settings."""
+    base = getattr(settings, 'BACKEND_BASE_URL', 'http://localhost:8000').rstrip('/')
+    return f"{base}/media/{path}"
+
+
 def _ensure_production_https(url):
     """
     Use HTTP for local dev (runserver) and HTTPS for deployed hosts.
@@ -109,10 +115,16 @@ def _ensure_production_https(url):
 
 
 def _build_public_download_url(request, relative_path):
+    base = getattr(settings, 'BACKEND_BASE_URL', None)
+    if base:
+        return f"{base.rstrip('/')}{relative_path}"
     return _ensure_production_https(request.build_absolute_uri(relative_path))
 
 
 def _build_public_base_url(request):
+    base = getattr(settings, 'BACKEND_BASE_URL', None)
+    if base:
+        return base.rstrip('/')
     return _ensure_production_https(request.build_absolute_uri("/")).rstrip("/")
 
 
@@ -549,7 +561,7 @@ def _email_auto_shared_response_pdf(submission, actor, config, resolved_user_ids
                 f.write(pdf_buffer.getvalue())
             
             # Use local file URL instead of S3
-            s3_url = f"http://localhost:8000/media/{local_file_path}"
+            s3_url = _media_url(local_file_path)
             
             expires_in_seconds = 86400
             short_download_url = s3_url
@@ -688,7 +700,7 @@ def _notify_form_admin_on_submission_commit(request, form, submission, stage=Non
             ).strip() or getattr(submitted_by, "username", "") or getattr(submitted_by, "email", "") or ""
 
         response_path = f"/api/forms/{form.id}/submissions/pdf/download?submission_id={submission.id}"
-        response_url = request.build_absolute_uri(response_path) if hasattr(request, "build_absolute_uri") else response_path
+        response_url = _build_public_download_url(request, response_path) if request else response_path
 
         stage_line = ""
         if stage is not None:
@@ -6712,7 +6724,7 @@ class FormResponseCSVView(APIView):
                         f.write(output.getvalue())
                     
                     # Use local file URL instead of S3
-                    s3_url = f"http://localhost:8000/media/{local_file_path}"
+                    s3_url = _media_url(local_file_path)
                     expires_in_seconds = 86400
                     send_excel_link_email(email, short_download_url, filename, expires_in_seconds)
                     logger.info(f"[Background Excel Task] Excel report link sent successfully to {email} for form {form_id}")
@@ -6835,7 +6847,7 @@ class ReportDownloadRedirectView(APIView):
             # For local development, redirect directly to the local file URL
             if job.get("s3_key", "").startswith("reports/"):
                 # Local file path format: reports/pdfs/org_id/timestamp_filename
-                local_file_url = f"http://localhost:8000/media/{job.get('s3_key')}"
+                local_file_url = _media_url(job.get('s3_key'))
                 return HttpResponseRedirect(local_file_url)
             
             # For production with S3 (if bucket_name is not None) - now using local storage
@@ -6843,7 +6855,7 @@ class ReportDownloadRedirectView(APIView):
             s3_key = job.get("s3_key")
             if bucket_name and s3_key and not s3_key.startswith("reports/"):
                 # Use local storage instead of S3 presigned URL
-                local_file_url = f"http://localhost:8000/media/{s3_key}"
+                local_file_url = _media_url(s3_key)
                 return HttpResponseRedirect(local_file_url)
             
             return Response({"error": "Download metadata is unavailable."}, status=status.HTTP_410_GONE)
@@ -7261,7 +7273,7 @@ class FormResponsePDFDownloadView(APIView):
                             f.write(pdf_buffer.getvalue())
                         
                         # Use local file URL instead of S3
-                        s3_url = f"http://localhost:8000/media/{local_file_path}"
+                        s3_url = _media_url(local_file_path)
                         expires_in_seconds = 86400
                         print(f"[Background PDF Task] Sending PDF link email to {email}... | Time: {dt.now()}")
                         sys.stdout.flush()
@@ -8161,13 +8173,17 @@ class FormsInFolderView(userContextAPIView, APIView):
                 organization=user.organization,
                 is_deleted=False
             ).annotate(
-                response_count=Count(
-                    'submissions',
-                    distinct=True,
-                    filter=(
-                        Q(submissions__submission_initiated_stage__isnull=False) |
-                        Q(submissions__form__form_type=FormType.AUDIT)
-                    ),
+                response_count=Subquery(
+                    FormSubmision.objects.filter(
+                        form_id=OuterRef('pk')
+                    ).filter(
+                        Q(submission_initiated_stage__isnull=False) |
+                        Q(group_submissions_history__isnull=False) |
+                        Q(stage_submissions_history__isnull=False)
+                    ).values('form_id').annotate(
+                        c=Count('pk', distinct=True)
+                    ).values('c')[:1],
+                    output_field=IntegerField()
                 ),
                 status=Subquery(latest_payload_status)
             ).distinct()
@@ -8866,13 +8882,17 @@ class OrganizationFormsViewOptimized(APIView):
                 # Annotate counts to avoid N+1 queries
                 stage_count=Count('stages', distinct=True),
                 audit_group_count=Count('audit_group', distinct=True),
-                response_count=Count(
-                    'submissions',
-                    distinct=True,
-                    filter=(
-                        Q(submissions__submission_initiated_stage__isnull=False) |
-                        Q(submissions__form__form_type=FormType.AUDIT)
-                    )
+                response_count=Subquery(
+                    FormSubmision.objects.filter(
+                        form_id=OuterRef('pk')
+                    ).filter(
+                        Q(submission_initiated_stage__isnull=False) |
+                        Q(group_submissions_history__isnull=False) |
+                        Q(stage_submissions_history__isnull=False)
+                    ).values('form_id').annotate(
+                        c=Count('pk', distinct=True)
+                    ).values('c')[:1],
+                    output_field=IntegerField()
                 ),
                 
                 # Conditional question count based on form_type

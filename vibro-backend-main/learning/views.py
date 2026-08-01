@@ -236,7 +236,58 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
                         td = TrainingItemSerializer(t, context={'request': request}).data
                         td['type'] = 'training'
                         linked_content.append(td)
-            s['linked_content'] = linked_content
+            # Expand follow-up chains into separate stage entries
+            expanded_content = []
+            stage_num = 0
+            for lc in linked_content:
+                stage_num += 1
+                lc['stage_number'] = stage_num
+                lc['is_follow_up_stage'] = False
+                expanded_content.append(lc)
+                # Walk the follow-up chain
+                fu_type = lc.get('follow_up_type')
+                fu_id = lc.get('follow_up_id')
+                while fu_type and fu_id:
+                    stage_num += 1
+                    fu_item = None
+                    if fu_type == 'quiz':
+                        q = Quiz.objects.filter(id=fu_id, organization=user.organization).first()
+                        if q:
+                            fu_item = QuizSerializer(q, context={'request': request}).data
+                            fu_item['type'] = 'quiz'
+                    elif fu_type == 'video':
+                        v = VideoContent.objects.filter(id=fu_id, organization=user.organization).first()
+                        if v:
+                            fu_item = VideoContentSerializer(v, context={'request': request}).data
+                            fu_item['type'] = 'video'
+                    elif fu_type == 'training':
+                        t = TrainingItem.objects.filter(id=fu_id, organization=user.organization).first()
+                        if t:
+                            fu_item = TrainingItemSerializer(t, context={'request': request}).data
+                            fu_item['type'] = 'training'
+                    if not fu_item:
+                        break
+                    fu_item['stage_number'] = stage_num
+                    fu_item['is_follow_up_stage'] = True
+                    fu_item['parent_content_id'] = lc.get('id')
+                    fu_item['parent_content_type'] = lc.get('type')
+                    expanded_content.append(fu_item)
+                    # Continue chain
+                    fu_type = fu_item.get('follow_up_type')
+                    fu_id = fu_item.get('follow_up_id')
+
+            # Embed per-content completion flags scoped to this user+schedule
+            for lc in expanded_content:
+                lc_id = lc.get('id')
+                lc_type = lc.get('type')
+                direct_results = QuizResult.objects.filter(
+                    user=user, content_id=lc_id, content_type=lc_type,
+                    schedule_id=s['id'], status='passed'
+                )
+                lc['is_completed'] = direct_results.exists()
+                lc['is_fully_completed'] = direct_results.filter(total_questions__gt=0).exists()
+
+            s['linked_content'] = expanded_content
 
             # Include user's attendance status for this schedule
             att = TrainingAttendance.objects.filter(
@@ -247,8 +298,15 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
             s['my_attendance'] = TrainingAttendanceSerializer(att).data if att else None
 
             # Embed best quiz result taken as part of this schedule (for score/time display)
-            sched_results = QuizResult.objects.filter(user=user, schedule_id=s['id']).order_by('-score')
+            # Prefer results with actual quiz questions (total_questions > 0) over document/video completions
+            sched_results = QuizResult.objects.filter(
+                user=user, schedule_id=s['id'], total_questions__gt=0
+            ).order_by('-score')
             best = sched_results.first()
+            if not best:
+                best = QuizResult.objects.filter(
+                    user=user, schedule_id=s['id']
+                ).order_by('-score').first()
             s['my_result'] = QuizResultSerializer(best).data if best else None
 
         # Separate completed schedules (user has checked out) from active ones
@@ -448,61 +506,6 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
         # Only return certificates where the user actually passed
         certs = [c for c in certs if c.score >= (c.pass_percentage or 70)]
         return Response(CertificateSerializer(certs, many=True).data, status=status.HTTP_200_OK)
-
-    # --- ADMIN: ALL TRAINING COMPLETIONS (schedule-based) ---
-    @action(detail=False, methods=['get'], url_path='all-training-completions')
-    def all_training_completions(self, request):
-        """
-        Returns one row per user per completed training schedule (check_out_time set),
-        with the best schedule-linked quiz/video result embedded. This is distinct from
-        all-quiz-results, which only shows standalone (non-schedule) quiz/video attempts.
-        """
-        org = request.user.organization
-        completed_att = TrainingAttendance.objects.filter(
-            organization=org,
-            check_out_time__isnull=False,
-        ).order_by('-check_out_time')
-
-        # Preload schedule titles
-        schedule_ids = set()
-        for a in completed_att:
-            try:
-                schedule_ids.add(int(a.training_id))
-            except (ValueError, TypeError):
-                pass
-        schedules = {s.id: s for s in TrainingSchedule.objects.filter(id__in=schedule_ids, organization=org)}
-
-        data = []
-        for a in completed_att:
-            try:
-                sched_id = int(a.training_id)
-            except (ValueError, TypeError):
-                sched_id = None
-            sched = schedules.get(sched_id) if sched_id else None
-            best_result = QuizResult.objects.filter(
-                user=a.user, schedule_id=sched_id, organization=org
-            ).order_by('-score').first() if sched_id else None
-
-            dept = a.user.department if a.user else None
-            data.append({
-                'attendance_id': a.id,
-                'schedule_id': sched_id,
-                'training_title': sched.title if sched else a.training_title,
-                'user_id': a.user_id,
-                'user_name': a.user_name or (f"{a.user.first_name} {a.user.last_name}".strip() if a.user else ''),
-                'user_department': str(dept) if dept else None,
-                'check_in_time': a.check_in_time,
-                'check_out_time': a.check_out_time,
-                'status': a.status,
-                'score': best_result.score if best_result else None,
-                'correct_answers': best_result.correct_answers if best_result else None,
-                'total_questions': best_result.total_questions if best_result else None,
-                'time_taken': best_result.time_taken if best_result else None,
-                'pass_percentage': best_result.pass_percentage if best_result else None,
-                'result_status': best_result.status if best_result else None,
-            })
-
-        return Response(data, status=status.HTTP_200_OK)
 
     # --- ADMIN: SHARE CERTIFICATE ---
     @action(detail=False, methods=['post'], url_path='share-certificate')

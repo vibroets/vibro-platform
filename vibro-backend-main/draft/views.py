@@ -95,7 +95,7 @@ class DraftViewSet(viewsets.ModelViewSet):
                     nonlocal replaced
                     replaced += 1
                     # Return local file URL instead of presigned S3 URL
-                    return f"http://localhost:8000/media/{key}"
+                    return f"{settings.BACKEND_BASE_URL.rstrip('/')}/media/{key}"
                 return url
             except Exception:
                 return url
@@ -160,7 +160,7 @@ class DraftViewSet(viewsets.ModelViewSet):
                 json.dump(metadata, f, indent=2)
             
             s3_key = f"drafts/{request.user.id}/{filename}"
-            json_s3_url = f"http://localhost:8000/media/{s3_key}"
+            json_s3_url = f"{settings.BACKEND_BASE_URL.rstrip('/')}/media/{s3_key}"
             s3_key = s3_key
             final_form_data = metadata
         else:
@@ -194,7 +194,7 @@ class DraftViewSet(viewsets.ModelViewSet):
 
         if existing_draft:
             # Update existing: delete old file and update data
-            if existing_draft.s3_url and existing_draft.s3_url.startswith('http://localhost:8000/media/'):
+            if existing_draft.s3_url and '/media/' in existing_draft.s3_url:
                 # Delete local file
                 old_file_path = os.path.join(settings.BASE_DIR, "media", existing_draft.s3_key)
                 try:
@@ -332,7 +332,7 @@ class DraftViewSet(viewsets.ModelViewSet):
         # Remove local/S3 payload if present and delete
         try:
             if draft.s3_url:
-                if draft.s3_url.startswith('http://localhost:8000/media/'):
+                if '/media/' in draft.s3_url:
                     # Delete local file
                     local_file_path = os.path.join(settings.BASE_DIR, "media", draft.s3_key)
                     try:
@@ -399,7 +399,7 @@ class DraftViewSet(viewsets.ModelViewSet):
             f.write(json_data)
         
         s3_key = f"drafts/{request.user.id}/{filename}"
-        file_url = f"http://localhost:8000/media/{s3_key}"
+        file_url = f"{settings.BACKEND_BASE_URL.rstrip('/')}/media/{s3_key}"
         s3_key = s3_key
         
         # --- New Audit Fields ---
@@ -425,7 +425,7 @@ class DraftViewSet(viewsets.ModelViewSet):
         if existing_draft:
             logger.info("Updating existing draft with draft_id=%s", draft_id_req)
             # Update existing draft: delete old file and update fields
-            if existing_draft.s3_url and existing_draft.s3_url.startswith('http://localhost:8000/media/'):
+            if existing_draft.s3_url and '/media/' in existing_draft.s3_url:
                 # Delete local file
                 old_file_path = os.path.join(settings.BASE_DIR, "media", existing_draft.s3_key)
                 try:
@@ -540,7 +540,7 @@ class DraftViewSet(viewsets.ModelViewSet):
         for d in drafts:
             # prefer local file payload if available, otherwise use stored metadata
             form_payload = None
-            if d.s3_url and d.s3_url.startswith('http://localhost:8000/media/'):
+            if d.s3_url and '/media/' in d.s3_url:
                 # Read from local file
                 local_file_path = os.path.join(settings.BASE_DIR, "media", d.s3_key)
                 try:
@@ -619,7 +619,7 @@ class DraftViewSet(viewsets.ModelViewSet):
             return Response({"error": "Draft file missing"}, status=400)
 
         # Read from local file or S3
-        if draft.s3_url.startswith('http://localhost:8000/media/'):
+        if '/media/' in draft.s3_url:
             # Read from local file
             local_file_path = os.path.join(settings.BASE_DIR, "media", draft.s3_key)
             try:
@@ -646,7 +646,7 @@ class DraftViewSet(viewsets.ModelViewSet):
         import os
 
         if instance.s3_url:
-            if instance.s3_url.startswith('http://localhost:8000/media/'):
+            if '/media/' in instance.s3_url:
                 # Delete local file
                 local_file_path = os.path.join(settings.BASE_DIR, "media", instance.s3_key)
                 try:

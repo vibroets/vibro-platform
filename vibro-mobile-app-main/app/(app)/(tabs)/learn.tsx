@@ -55,6 +55,19 @@ const clearVideoProgress = async (scheduleId: any, contentId: any, contentType: 
   } catch (e) {}
 };
 
+const getQuizProgressKey = (scheduleId: any, contentId: any, contentType: string, parentContentId?: any, parentContentType?: string) => {
+  const schedPart = scheduleId != null ? `sched_${scheduleId}` : 'direct';
+  const parentPart = parentContentId != null ? `_parent_${parentContentType}_${parentContentId}` : '';
+  return `quiz_progress_${schedPart}_${contentType}_${contentId}${parentPart}`;
+};
+
+const hasQuizProgress = async (scheduleId: any, contentId: any, contentType: string, parentContentId?: any, parentContentType?: string): Promise<boolean> => {
+  try {
+    const val = await AsyncStorage.getItem(getQuizProgressKey(scheduleId, contentId, contentType, parentContentId, parentContentType));
+    return val != null;
+  } catch (e) { return false; }
+};
+
 // --- MEDIA VIEWER COMPONENT (Video + Document) ---
 const buildRestrictedVideoHtml = (videoUrl: string, resumePosition: number = 0) => {
   return `<!DOCTYPE html>
@@ -276,18 +289,14 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
       saveVideoProgress(course._progressScheduleId, course.id, course.type, latestProgressRef.current, course.parentContentId, course.parentContentType);
     }
     Alert.alert(
-      completed ? "Content Completed" : "Content Progress",
-      completed
-        ? (course.follow_up_type ? "You have finished viewing this content. Start the follow-up assessment?" : "You have finished watching this content. Mark as done?")
-        : (course.follow_up_type ? "Did you finish viewing this content? You can start the follow-up assessment." : "Did you finish watching this content?"),
+      "Stage Completion",
+      "Did you finish viewing this content? Mark this stage as completed?",
       [
         { text: "No, Not yet", style: "cancel", onPress: onBack },
         { 
-          text: course.follow_up_type ? "Yes, Start Follow-up" : "Yes, I'm done", 
+          text: "Yes, Complete Stage", 
           onPress: () => {
-            if (course.follow_up_type && onStartFollowUp) {
-              onStartFollowUp();
-            } else if (onComplete) {
+            if (onComplete) {
               onComplete();
             } else {
               onBack();
@@ -313,24 +322,6 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
     });
     return () => subscription.remove();
   }, [docOpened]);
-
-  // Prompt follow-up when user returns from viewing document
-  useEffect(() => {
-    if (!docReturned || !course.follow_up_type) return;
-    const timer = setTimeout(() => {
-      Alert.alert(
-        "Document Viewed",
-        `You have viewed the training document. Ready to start the follow-up ${course.follow_up_type === "quiz" ? "quiz" : "video"}?`,
-        [
-          { text: "Not yet", style: "cancel" },
-          { text: `Start ${course.follow_up_type === "quiz" ? "Quiz" : "Video"}`, onPress: () => {
-            if (onStartFollowUp) onStartFollowUp();
-          }}
-        ]
-      );
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [docReturned, course.follow_up_type]);
 
   const openDocumentExternally = async () => {
     if (!finalUrl) return;
@@ -391,7 +382,7 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
         <SafeAreaView style={{ flex: 0, backgroundColor: "#fff" }} />
         <View style={[styles.playerHeader, { backgroundColor: "#fff" }]}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Text style={[styles.backButtonText, { color: "#333" }]}>← {course.follow_up_type ? "Back / Start Follow-up" : "Back / Finish"}</Text>
+            <Text style={[styles.backButtonText, { color: "#333" }]}>← Back / Complete Stage</Text>
           </TouchableOpacity>
         </View>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ justifyContent: "center", alignItems: "center", padding: 20, flexGrow: 1 }}>
@@ -434,23 +425,8 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
             {docOpened && (
               <View style={styles.viewedIndicator}>
                 <Ionicons name="checkmark-circle" size={16} color="#10b981" />
-                <Text style={styles.viewedText}>Document opened</Text>
+                <Text style={styles.viewedText}>Document opened — click Back to complete this stage</Text>
               </View>
-            )}
-
-            {/* Start Follow-up Button - appears after document is opened */}
-            {course.follow_up_type && docOpened && (
-              <TouchableOpacity style={[styles.openDocBtn, { backgroundColor: "#10b981", marginTop: 10 }]} onPress={() => {
-                if (onStartFollowUp) onStartFollowUp();
-              }}>
-                <Ionicons name="play-circle-outline" size={20} color="#fff" />
-                <Text style={styles.openDocBtnText}>Start Follow-up {course.follow_up_type === "quiz" ? "Quiz" : "Video"}</Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Follow-up hint before opening */}
-            {course.follow_up_type && !docOpened && (
-              <Text style={styles.followUpHint}>View the document to unlock the follow-up {course.follow_up_type === "quiz" ? "quiz" : "video"}</Text>
             )}
           </View>
         </ScrollView>
@@ -524,12 +500,19 @@ export default function LearnScreen() {
   const [selectedQuiz, setSelectedQuiz] = useState<any>(null);
   const [followUpContent, setFollowUpContent] = useState<any>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
+  const selectedScheduleRef = useRef<any>(null);
   const [scheduleCheckedIn, setScheduleCheckedIn] = useState(false);
   const [contentProgress, setContentProgress] = useState<Record<string, number>>({});
   const [quizScheduleContext, setQuizScheduleContext] = useState<any>(null);
   const [completedSchedules, setCompletedSchedules] = useState<any[]>([]);
   const [myCertificates, setMyCertificates] = useState<any[]>([]);
   const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
+
+  // Keep ref in sync with state
+  const updateSelectedSchedule = (sched: any) => {
+    selectedScheduleRef.current = sched;
+    setSelectedSchedule(sched);
+  };
 
   const fetchAssignedContent = async () => {
     try {
@@ -549,7 +532,16 @@ export default function LearnScreen() {
       setMyResults(resultsRes.data || []);
       setCompletedSchedules(data.completed_schedules || []);
       setMyCertificates(Array.isArray(certRes.data) ? certRes.data : []);
-      return { results: resultsRes.data || [] };
+      // Refresh selectedSchedule with updated data if one is open
+      const currentSched = selectedScheduleRef.current;
+      if (currentSched) {
+        const updated = [...(data.training_schedules || []), ...(data.completed_schedules || [])]
+          .find((s: any) => String(s.id) === String(currentSched.id));
+        if (updated) {
+          updateSelectedSchedule({ ...updated, type: "training-schedule", my_attendance: currentSched.my_attendance });
+        }
+      }
+      return { results: resultsRes.data || [], schedules: [...(data.training_schedules || []), ...(data.completed_schedules || [])] };
     } catch (error: any) {
       console.error("Error fetching data:", error?.message);
       return { results: [] };
@@ -611,20 +603,25 @@ export default function LearnScreen() {
   };
 
   const handleOpenSchedule = async (schedule: any) => {
-    setSelectedSchedule(schedule);
+    // Fetch fresh data so completion flags are up-to-date
+    const { schedules } = await fetchAssignedContent();
+    // Find the refreshed schedule from the returned data
+    const freshSchedule = schedules?.find((s: any) => String(s.id) === String(schedule.id));
+    const sched = freshSchedule ? { ...freshSchedule, type: "training-schedule" } : schedule;
+    updateSelectedSchedule(sched);
     setScheduleCheckedIn(false);
-    const linkedContent = schedule.linked_content || [];
+    const linkedContent = sched.linked_content || [];
     const progressMap: Record<string, number> = {};
     for (const c of linkedContent) {
-      const p = await getVideoProgress(schedule.id, c.id, c.type);
+      const p = await getVideoProgress(sched.id, c.id, c.type);
       if (p > 0 && p < 95) progressMap[`${c.type}_${c.id}`] = p;
     }
     setContentProgress(progressMap);
     try {
-      const res = await api.post(`/learning/training-schedules/${schedule.id}/auto-checkin/`);
+      const res = await api.post(`/learning/training-schedules/${sched.id}/auto-checkin/`);
       setScheduleCheckedIn(true);
       if (res.data.attendance) {
-        setSelectedSchedule({ ...schedule, my_attendance: res.data.attendance });
+        updateSelectedSchedule({ ...sched, my_attendance: res.data.attendance });
       }
     } catch (e: any) {
       console.error("Auto check-in failed:", e?.message);
@@ -636,7 +633,7 @@ export default function LearnScreen() {
     try {
       await api.post(`/learning/training-schedules/${selectedSchedule.id}/complete-training/`);
       Alert.alert("Completed", "Your training has been marked as completed.", [
-        { text: "OK", onPress: () => { setSelectedSchedule(null); fetchAssignedContent(); } }
+        { text: "OK", onPress: () => { updateSelectedSchedule(null); } }
       ]);
     } catch (e: any) {
       Alert.alert("Error", "Failed to mark training as completed.", [{ text: "OK" }]);
@@ -644,6 +641,7 @@ export default function LearnScreen() {
   };
 
   const isContentCompleted = (content: any) => {
+    if (content.is_completed !== undefined) return content.is_completed;
     const direct = myResults.some((r: any) => String(r.content_id) === String(content.id) && r.content_type === content.type && r.status === "passed");
     if (direct) return true;
     if (content.follow_up_type && content.follow_up_id) {
@@ -653,6 +651,7 @@ export default function LearnScreen() {
   };
 
   const isQuizFullyCompleted = (content: any) => {
+    if (content.is_fully_completed !== undefined) return content.is_fully_completed;
     const direct = myResults.some((r: any) => String(r.content_id) === String(content.id) && r.content_type === content.type && r.status === "passed" && r.total_questions > 0);
     if (direct) return true;
     if (content.follow_up_type && content.follow_up_id) {
@@ -661,26 +660,45 @@ export default function LearnScreen() {
     return false;
   };
 
-  const handleScheduleContentPress = (content: any) => {
+  const handleScheduleContentPress = async (content: any) => {
     const hasQuestions = content.questions && Array.isArray(content.questions) && content.questions.length > 0;
     const schedId = selectedSchedule?.id;
+    // For follow-up stage items, pass parent info for proper result tracking
+    const parentContentId = content.parent_content_id;
+    const parentContentType = content.parent_content_type;
+    // Block completed stages — user cannot re-open them
     if (isContentCompleted(content)) {
       if (hasQuestions && !isQuizFullyCompleted(content)) {
         // Video was watched to completion but quiz not yet taken — allow reopening
         if (content.type === "video" || content.type === "training") {
           const url = content.video_url || content.video_file_url || getMediaUrl(content.video_file);
           setQuizScheduleContext(selectedSchedule);
-          setSelectedQuiz({ ...content, video_url: url, _progressScheduleId: schedId });
+          setSelectedQuiz({ ...content, video_url: url, _progressScheduleId: schedId, parentContentId, parentContentType });
           return;
         }
       }
-      Alert.alert("Already Completed", "You have already completed this content. It cannot be reopened.", [{ text: "OK" }]);
+      Alert.alert("Already Completed", "This stage has been completed.", [{ text: "OK" }]);
       return;
     }
+    // Enforce sequential completion — all previous stages must be completed
+    const linkedContent = selectedSchedule?.linked_content || [];
+    const stageNum = content.stage_number || (linkedContent.findIndex((c: any) => c.id === content.id && c.type === content.type) + 1);
+    const prevStages = linkedContent.filter((c: any) => (c.stage_number || 0) < stageNum);
+    const incompletePrev = prevStages.find((c: any) => {
+      const cHasQs = c.questions && Array.isArray(c.questions) && c.questions.length > 0;
+      return cHasQs ? !isQuizFullyCompleted(c) : !isContentCompleted(c);
+    });
+    if (incompletePrev) {
+      const prevStageNum = incompletePrev.stage_number || '?';
+      Alert.alert("Complete Previous Stage", `Please complete Stage ${prevStageNum} before starting this stage.`, [{ text: "OK" }]);
+      return;
+    }
+    // Check if quiz progress exists (video already watched, quiz in progress)
+    const quizInProgress = hasQuestions ? await hasQuizProgress(schedId, content.id, content.type, parentContentId, parentContentType) : false;
     if (content.type === "quiz") {
       if (hasQuestions) {
         setQuizScheduleContext(selectedSchedule);
-        setSelectedQuiz({ ...content, _progressScheduleId: schedId });
+        setSelectedQuiz({ ...content, _progressScheduleId: schedId, parentContentId, parentContentType });
       } else {
         Alert.alert(content.title, content.description || "No questions available for this quiz.", [{ text: "OK" }]);
       }
@@ -688,16 +706,19 @@ export default function LearnScreen() {
       const url = content.video_url || content.video_file_url || getMediaUrl(content.video_file);
       if (hasQuestions) {
         setQuizScheduleContext(selectedSchedule);
-        setSelectedQuiz({ ...content, video_url: url, _progressScheduleId: schedId });
+        setSelectedQuiz({ ...content, video_url: url, _progressScheduleId: schedId, parentContentId, parentContentType, video_already_completed: quizInProgress });
       } else if (url) {
-        setSelectedVideo({ ...content, video_url: url, video_source: content.video_source || content.videoSource, videoSource: content.videoSource, _progressScheduleId: schedId });
+        setSelectedVideo({ ...content, video_url: url, video_source: content.video_source || content.videoSource, videoSource: content.videoSource, _progressScheduleId: schedId, parentContentId, parentContentType });
       } else {
         Alert.alert(content.title, content.description || "No video content available.", [{ text: "OK" }]);
       }
     } else if (content.type === "training") {
       const url = content.content_url || content.file_url || getMediaUrl(content.file);
-      if (url) {
-        setSelectedVideo({ ...content, video_url: url, content_url: url, file_url: url, _progressScheduleId: schedId });
+      if (hasQuestions) {
+        setQuizScheduleContext(selectedSchedule);
+        setSelectedQuiz({ ...content, video_url: url, _progressScheduleId: schedId, parentContentId, parentContentType, video_already_completed: quizInProgress });
+      } else if (url) {
+        setSelectedVideo({ ...content, video_url: url, content_url: url, file_url: url, _progressScheduleId: schedId, parentContentId, parentContentType });
       } else {
         Alert.alert(content.title, content.description || "No training content available.", [{ text: "OK" }]);
       }
@@ -709,6 +730,26 @@ export default function LearnScreen() {
     const parentContentId = selectedVideo.id;
     const parentContentType = selectedVideo.type;
     const schedId = selectedVideo._progressScheduleId ?? null;
+    
+    // Submit completion result for the current content before moving to follow-up
+    try {
+      await api.post("/learning/courses/submit-quiz-result/", {
+        content_type: selectedVideo.type,
+        content_id: selectedVideo.id,
+        content_title: selectedVideo.title || "",
+        schedule_id: schedId || undefined,
+        score: 100,
+        correct_answers: 0,
+        total_questions: 0,
+        time_taken: 0,
+        answers: [],
+        questions: [],
+        pass_percentage: 0,
+      });
+    } catch (e: any) {
+      console.error("Failed to submit content completion:", e?.message);
+    }
+    
     let followUp = findFollowUpContent(selectedVideo);
     
     // If not found locally, try fetching from API
@@ -772,27 +813,8 @@ export default function LearnScreen() {
     } catch (e: any) {
       console.error("Failed to submit video result:", e?.message);
     }
-    const { results } = await fetchAssignedContent();
-    if (selectedSchedule) {
-      const linkedContent = selectedSchedule.linked_content || [];
-      const isCompletedFresh = (content: any) => {
-        const hasQs = content.questions && Array.isArray(content.questions) && content.questions.length > 0;
-        const matches = (r: any, cid: any, ctype: any, requireQ: boolean) =>
-          String(r.content_id) === String(cid) && r.content_type === ctype && r.status === "passed" && (!requireQ || r.total_questions > 0);
-        const direct = results.some((r: any) => matches(r, content.id, content.type, hasQs));
-        if (direct) return true;
-        if (content.follow_up_type && content.follow_up_id) {
-          return results.some((r: any) => matches(r, content.follow_up_id, content.follow_up_type, hasQs));
-        }
-        return false;
-      };
-      const nextContent = linkedContent.find((c: any) =>
-        !isCompletedFresh(c) && String(c.id) !== String(video.id)
-      );
-      if (nextContent) {
-        handleScheduleContentPress(nextContent);
-      }
-    }
+    // Refresh data so schedule detail shows updated completion flags
+    await fetchAssignedContent();
   };
 
   const handleItemPress = (item: any) => {
@@ -832,51 +854,21 @@ export default function LearnScreen() {
       <QuizScreen
         item={selectedQuiz}
         scheduleId={quizScheduleContext?.id}
-        onBack={async () => { setSelectedQuiz(null); setQuizScheduleContext(null); if (selectedSchedule) { await fetchAssignedContent(); const linked = selectedSchedule.linked_content || []; const pm: Record<string, number> = {}; for (const c of linked) { const p = await getVideoProgress(selectedSchedule.id, c.id, c.type); if (p > 0 && p < 95) pm[`${c.type}_${c.id}`] = p; } setContentProgress(pm); } }}
+        onBack={async () => { setSelectedQuiz(null); setQuizScheduleContext(null); if (selectedSchedule) { const { schedules } = await fetchAssignedContent(); const updated = schedules?.find((s: any) => String(s.id) === String(selectedSchedule.id)); const linked = (updated || selectedSchedule).linked_content || []; const pm: Record<string, number> = {}; for (const c of linked) { const p = await getVideoProgress(selectedSchedule.id, c.id, c.type); if (p > 0 && p < 95) pm[`${c.type}_${c.id}`] = p; } setContentProgress(pm); } }}
         onQuizComplete={quizScheduleContext ? async (score: number, passed: boolean) => {
           try {
             const quiz = selectedQuiz;
             setSelectedQuiz(null);
-            const { results } = await fetchAssignedContent();
-            const linkedContent = quizScheduleContext.linked_content || [];
-            const isCompletedFresh = (content: any) => {
-              const hasQs = content.questions && Array.isArray(content.questions) && content.questions.length > 0;
-              const matches = (r: any, cid: any, ctype: any, requireQ: boolean) =>
-                String(r.content_id) === String(cid) && r.content_type === ctype && r.status === "passed" && (!requireQ || r.total_questions > 0);
-              const direct = results.some((r: any) => matches(r, content.id, content.type, hasQs));
-              if (direct) return true;
-              if (content.follow_up_type && content.follow_up_id) {
-                return results.some((r: any) => matches(r, content.follow_up_id, content.follow_up_type, hasQs));
-              }
-              return false;
-            };
-            const nextContent = linkedContent.find((c: any) =>
-              !isCompletedFresh(c) && String(c.id) !== String(quiz.id)
-            );
-            if (nextContent) {
-              setQuizScheduleContext(null);
-              handleScheduleContentPress(nextContent);
-            } else {
-              // All content completed — go back to schedule detail so user can click Complete
-              setQuizScheduleContext(null);
-              // Refresh schedule data to reflect completion
-              if (selectedSchedule) {
-                const linked = selectedSchedule.linked_content || [];
-                const pm: Record<string, number> = {};
-                for (const c of linked) {
-                  const p = await getVideoProgress(selectedSchedule.id, c.id, c.type);
-                  if (p > 0 && p < 95) pm[`${c.type}_${c.id}`] = p;
-                }
-                setContentProgress(pm);
-              }
-              setTimeout(() => {
-                Alert.alert(
-                  "Quiz Submitted",
-                  `Quiz submitted with ${score}%. ${passed ? "Passed!" : "Did not pass."} Click "Complete" to finish the training.`,
-                  [{ text: "OK" }]
-                );
-              }, 300);
-            }
+            setQuizScheduleContext(null);
+            // Refresh data so schedule detail shows updated completion flags
+            await fetchAssignedContent();
+            setTimeout(() => {
+              Alert.alert(
+                "Quiz Submitted",
+                `Quiz submitted with ${score}%. ${passed ? "Passed!" : "Did not pass."}`,
+                [{ text: "OK" }]
+              );
+            }, 300);
           } catch (e: any) {
             console.error("onQuizComplete failed:", e?.message);
           }
@@ -1029,7 +1021,7 @@ export default function LearnScreen() {
       <MediaViewer
         course={selectedVideo}
         scheduleId={selectedSchedule?.id}
-        onBack={async () => { setSelectedVideo(null); if (selectedSchedule) { await fetchAssignedContent(); const linked = selectedSchedule.linked_content || []; const pm: Record<string, number> = {}; for (const c of linked) { const p = await getVideoProgress(selectedSchedule.id, c.id, c.type); if (p > 0 && p < 95) pm[`${c.type}_${c.id}`] = p; } setContentProgress(pm); } }}
+        onBack={async () => { setSelectedVideo(null); if (selectedSchedule) { const { schedules } = await fetchAssignedContent(); const updated = schedules?.find((s: any) => String(s.id) === String(selectedSchedule.id)); const linked = (updated || selectedSchedule).linked_content || []; const pm: Record<string, number> = {}; for (const c of linked) { const p = await getVideoProgress(selectedSchedule.id, c.id, c.type); if (p > 0 && p < 95) pm[`${c.type}_${c.id}`] = p; } setContentProgress(pm); } }}
         onStartFollowUp={handleStartFollowUp}
         onComplete={handleVideoComplete}
       />
@@ -1046,11 +1038,11 @@ export default function LearnScreen() {
       const hasQs = c.questions && Array.isArray(c.questions) && c.questions.length > 0;
       return hasQs ? isQuizFullyCompleted(c) : isContentCompleted(c);
     }).length;
-    const allContentCompleted = linkedContent.length === 0 || completedContentCount === linkedContent.length;
+    const allContentCompleted = linkedContent.length > 0 && completedContentCount === linkedContent.length;
     return (
       <SafeAreaView style={styles.container}>
         <View style={{ flexDirection: "row", alignItems: "center", padding: 10, backgroundColor: "#fff", borderBottomWidth: 1, borderColor: "#eee" }}>
-          <TouchableOpacity onPress={() => { setSelectedSchedule(null); fetchAssignedContent(); }} style={{ marginRight: 8 }}>
+          <TouchableOpacity onPress={() => { updateSelectedSchedule(null); }} style={{ marginRight: 8 }}>
             <Ionicons name="arrow-back" size={18} color="#333" />
           </TouchableOpacity>
           <Text style={{ fontSize: 15, fontWeight: "bold", color: "#1f2937" }}>Training Details</Text>
@@ -1109,7 +1101,7 @@ export default function LearnScreen() {
           </View>
 
           {/* Linked Content */}
-          <Text style={styles.sectionTitle}>Training Content</Text>
+          <Text style={styles.sectionTitle}>Training Stages</Text>
           {linkedContent.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="documents-outline" size={40} color="#ccc" />
@@ -1119,66 +1111,106 @@ export default function LearnScreen() {
             linkedContent.map((content: any, index: number) => {
               const typeColors = getTypeColor(content.type);
               const completed = isContentCompleted(content);
-              const fullyCompleted = isQuizFullyCompleted(content);
               const hasQs = content.questions && Array.isArray(content.questions) && content.questions.length > 0;
+              const fullyCompleted = hasQs ? isQuizFullyCompleted(content) : completed;
               const videoDoneQuizPending = completed && hasQs && !fullyCompleted;
               const progressKey = `${content.type}_${content.id}`;
               const savedProgress = contentProgress[progressKey] || 0;
               const inProgress = !completed && savedProgress > 0;
+              const stageNum = content.stage_number || (index + 1);
+              const stageLabel = content.type === "training" ? "Document" : content.type === "video" ? "Video" : content.type === "quiz" ? "Quiz" : "Content";
+              const isLastStage = index === linkedContent.length - 1;
               return (
-                <TouchableOpacity
-                  key={`sched-content-${content.type}-${content.id}-${index}`}
-                  style={[styles.contentCard, fullyCompleted && { opacity: 0.6 }]}
-                  onPress={() => handleScheduleContentPress(content)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.contentCardHeader}>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={styles.contentTitle} numberOfLines={2}>{content.title}</Text>
-                      {content.description ? (
-                        <Text style={styles.contentDesc} numberOfLines={1}>{content.description}</Text>
-                      ) : null}
+                <View key={`sched-content-${content.type}-${content.id}-${index}`}>
+                  {fullyCompleted ? (
+                    <View style={[styles.contentCard, { opacity: 0.6 }]}>
+                      <View style={styles.contentCardHeader}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                          <View style={{
+                            width: 28, height: 28, borderRadius: 14,
+                            backgroundColor: "#d1fae5",
+                            alignItems: "center", justifyContent: "center",
+                          }}>
+                            <Ionicons name="checkmark" size={16} color="#059669" />
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.contentTitle} numberOfLines={2}>{content.title}</Text>
+                            <Text style={[styles.contentDesc, { color: "#9ca3af", fontSize: 11, marginTop: 2 }]}>Stage {stageNum}: {stageLabel}</Text>
+                          </View>
+                        </View>
+                        <View style={[styles.typeBadge, { backgroundColor: "#d1fae5" }]}>
+                          <Ionicons name="checkmark-circle" size={12} color="#059669" />
+                          <Text style={[styles.typeBadgeText, { color: "#059669" }]}>Completed</Text>
+                        </View>
+                      </View>
+                      <View style={styles.contentCardFooter}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          {content.time_limit ? <Text style={styles.metaText}>⏱ {content.time_limit} min</Text> : null}
+                          {hasQs ? <Text style={styles.metaText}>{content.questions.length} Qs</Text> : null}
+                        </View>
+                        <View style={[styles.startBtn, { backgroundColor: "#d1fae5" }]}>
+                          <Ionicons name="checkmark-circle" size={14} color="#059669" />
+                          <Text style={[styles.startBtnText, { color: "#059669" }]}>Completed</Text>
+                        </View>
+                      </View>
                     </View>
-                    {fullyCompleted ? (
-                      <View style={[styles.typeBadge, { backgroundColor: "#d1fae5" }]}>
-                        <Ionicons name="checkmark-circle" size={12} color="#059669" />
-                        <Text style={[styles.typeBadgeText, { color: "#059669" }]}>Completed</Text>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.contentCard, inProgress && { borderColor: "#d97706", borderWidth: 1.5 }]}
+                      onPress={() => handleScheduleContentPress(content)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.contentCardHeader}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                          <View style={{
+                            width: 28, height: 28, borderRadius: 14,
+                            backgroundColor: completed ? "#dbeafe" : inProgress ? "#fef3c7" : typeColors.bg,
+                            alignItems: "center", justifyContent: "center",
+                          }}>
+                            <Text style={{ fontSize: 13, fontWeight: "bold", color: completed ? "#2563eb" : inProgress ? "#d97706" : typeColors.text }}>{stageNum}</Text>
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.contentTitle} numberOfLines={2}>{content.title}</Text>
+                            <Text style={[styles.contentDesc, { color: "#9ca3af", fontSize: 11, marginTop: 2 }]}>Stage {stageNum}: {stageLabel}</Text>
+                          </View>
+                        </View>
+                        {videoDoneQuizPending ? (
+                          <View style={[styles.typeBadge, { backgroundColor: "#dbeafe" }]}>
+                            <Ionicons name="videocam-outline" size={12} color="#2563eb" />
+                            <Text style={[styles.typeBadgeText, { color: "#2563eb" }]}>Video Done</Text>
+                          </View>
+                        ) : inProgress ? (
+                          <View style={[styles.typeBadge, { backgroundColor: "#fef3c7" }]}>
+                            <Ionicons name="play-circle-outline" size={12} color="#d97706" />
+                            <Text style={[styles.typeBadgeText, { color: "#d97706" }]}>{Math.round(savedProgress)}%</Text>
+                          </View>
+                        ) : (
+                          <View style={[styles.typeBadge, { backgroundColor: typeColors.bg }]}>
+                            <Ionicons name={getTypeIcon(content.type) as any} size={12} color={typeColors.text} />
+                            <Text style={[styles.typeBadgeText, { color: typeColors.text }]}>{stageLabel}</Text>
+                          </View>
+                        )}
                       </View>
-                    ) : videoDoneQuizPending ? (
-                      <View style={[styles.typeBadge, { backgroundColor: "#dbeafe" }]}>
-                        <Ionicons name="videocam-outline" size={12} color="#2563eb" />
-                        <Text style={[styles.typeBadgeText, { color: "#2563eb" }]}>Video Done</Text>
+                      <View style={styles.contentCardFooter}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          {content.time_limit ? <Text style={styles.metaText}>⏱ {content.time_limit} min</Text> : null}
+                          {content.pass_percentage != null ? <Text style={styles.metaText}>Pass: {content.pass_percentage}%</Text> : null}
+                          {hasQs ? <Text style={styles.metaText}>{content.questions.length} Qs</Text> : null}
+                        </View>
+                        <TouchableOpacity style={[styles.startBtn, inProgress && { backgroundColor: "#d97706" }, videoDoneQuizPending && { backgroundColor: "#2563eb" }]} onPress={() => handleScheduleContentPress(content)}>
+                          <Text style={styles.startBtnText}>
+                            {videoDoneQuizPending ? "Resume Quiz" : inProgress ? "Resume" : content.type === "video" || content.type === "training" ? "View" : "Start"}
+                          </Text>
+                          <Ionicons name="chevron-forward" size={14} color="#fff" />
+                        </TouchableOpacity>
                       </View>
-                    ) : inProgress ? (
-                      <View style={[styles.typeBadge, { backgroundColor: "#fef3c7" }]}>
-                        <Ionicons name="play-circle-outline" size={12} color="#d97706" />
-                        <Text style={[styles.typeBadgeText, { color: "#d97706" }]}>{Math.round(savedProgress)}%</Text>
-                      </View>
-                    ) : (
-                      <View style={[styles.typeBadge, { backgroundColor: typeColors.bg }]}>
-                        <Ionicons name={getTypeIcon(content.type) as any} size={12} color={typeColors.text} />
-                        <Text style={[styles.typeBadgeText, { color: typeColors.text }]}>
-                          {content.type === "quiz" ? "Quiz" : content.type === "video" ? "Video" : "Training"}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.contentCardFooter}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      {content.time_limit ? <Text style={styles.metaText}>⏱ {content.time_limit} min</Text> : null}
-                      {content.pass_percentage != null ? <Text style={styles.metaText}>Pass: {content.pass_percentage}%</Text> : null}
-                      {hasQs ? (
-                        <Text style={styles.metaText}>{content.questions.length} Qs</Text>
-                      ) : null}
-                    </View>
-                    <TouchableOpacity style={[styles.startBtn, fullyCompleted && { backgroundColor: "#9ca3af" }, inProgress && { backgroundColor: "#d97706" }, videoDoneQuizPending && { backgroundColor: "#2563eb" }]} onPress={() => handleScheduleContentPress(content)}>
-                      <Text style={styles.startBtnText}>
-                        {fullyCompleted ? "Done" : videoDoneQuizPending ? "Resume Quiz" : inProgress ? "Resume" : content.type === "video" || content.type === "training" ? "View" : "Start"}
-                      </Text>
-                      <Ionicons name="chevron-forward" size={14} color="#fff" />
                     </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
+                  )}
+                  {/* Stage connector line */}
+                  {!isLastStage && (
+                    <View style={{ marginLeft: 22, width: 2, height: 16, backgroundColor: fullyCompleted ? "#d1fae5" : "#e5e7eb" }} />
+                  )}
+                </View>
               );
             })
           )}
@@ -1400,7 +1432,8 @@ export default function LearnScreen() {
                   const att = sched.my_attendance;
                   const checkOut = att?.check_out_time ? new Date(att.check_out_time).toLocaleDateString() : "";
                   const bestResult = sched.my_result || null;
-                  const scorePct = bestResult && bestResult.total_questions > 0 ? Math.round((bestResult.correct_answers / bestResult.total_questions) * 100) : null;
+                  const hasPassed = bestResult ? bestResult.status === "passed" : true;
+                  const scorePct = bestResult ? Math.round(bestResult.score || 0) : null;
                   const timeMin = bestResult ? Math.floor((bestResult.time_taken || 0) / 60) : 0;
                   const timeSec = bestResult ? (bestResult.time_taken || 0) % 60 : 0;
                   return (
@@ -1413,9 +1446,9 @@ export default function LearnScreen() {
                               <Ionicons name="calendar-outline" size={12} color="#d97706" />
                               <Text style={[styles.typeBadgeText, { color: "#d97706" }]}>Schedule</Text>
                             </View>
-                            <View style={[styles.resultBadge, { backgroundColor: "#d1fae5" }]}>
-                              <Ionicons name="checkmark-circle" size={10} color="#059669" />
-                              <Text style={[styles.resultBadgeText, { color: "#059669" }]}>Completed</Text>
+                            <View style={[styles.resultBadge, { backgroundColor: hasPassed ? "#d1fae5" : "#fee2e2" }]}>
+                              <Ionicons name={hasPassed ? "checkmark-circle" : "close-circle"} size={10} color={hasPassed ? "#059669" : "#ef4444"} />
+                              <Text style={[styles.resultBadgeText, { color: hasPassed ? "#059669" : "#ef4444" }]}>{hasPassed ? "Pass" : "Fail"}</Text>
                             </View>
                           </View>
                         </View>

@@ -66,9 +66,6 @@ export default function AdminDashboardPage() {
   const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [certSearchTerm, setCertSearchTerm] = useState("");
-  const [trainingCompletions, setTrainingCompletions] = useState<any[]>([]);
-  const [showTrainingCompletionsView, setShowTrainingCompletionsView] = useState(false);
-  const [trainingSearchTerm, setTrainingSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [allQuizzes, setAllQuizzes] = useState<any[]>([]);
@@ -82,7 +79,7 @@ export default function AdminDashboardPage() {
 
   const fetchData = async () => {
     try {
-      const [res, certs, users, quizzes, videos, groups, locations, trainingComp] = await Promise.all([
+      const [res, certs, users, quizzes, videos, groups, locations] = await Promise.all([
         axiosInstance.get("/learning/courses/all-quiz-results/"),
         axiosInstance.get("/learning/courses/all-certificates/"),
         axiosInstance.get("/learning/courses/users-list/"),
@@ -90,17 +87,15 @@ export default function AdminDashboardPage() {
         axiosInstance.get("/learning/videos/"),
         axiosInstance.get("/learning/courses/groups-list/").catch(() => ({ data: [] })),
         axiosInstance.get("/learning/courses/locations-list/").catch(() => ({ data: [] })),
-        axiosInstance.get("/learning/courses/all-training-completions/").catch(() => ({ data: [] })),
       ]);
       setResults(Array.isArray(res.data) ? res.data : []);
       setCertificates(Array.isArray(certs.data) ? certs.data : []);
       setFilteredCertificates(Array.isArray(certs.data) ? certs.data : []);
       setAllUsers(Array.isArray(users.data) ? users.data : []);
-      setAllQuizzes(Array.isArray(quizzes.data) ? quizzes.data : ((quizzes.data as any)?.results || []));
-      setAllVideos(Array.isArray(videos.data) ? videos.data : ((videos.data as any)?.results || []));
+      setAllQuizzes(Array.isArray(quizzes.data) ? (quizzes.data.results || quizzes.data) : []);
+      setAllVideos(Array.isArray(videos.data) ? (videos.data.results || videos.data) : []);
       setAllGroups(Array.isArray(groups.data) ? groups.data : []);
       setAllLocations(Array.isArray(locations.data) ? locations.data : []);
-      setTrainingCompletions(Array.isArray(trainingComp.data) ? trainingComp.data : []);
     } catch (e) {
       console.error("Failed to fetch admin data:", e);
     } finally {
@@ -122,12 +117,8 @@ export default function AdminDashboardPage() {
     if (filters.quiz) filtered = filtered.filter(r => String(r.content_id) === filters.quiz);
     if (filters.department) filtered = filtered.filter(r => (r.user_department || "") === filters.department);
     if (filters.trainingType) {
-      if (filters.trainingType === "Scheduled Training") {
-        filtered = filtered.filter(r => !!r.schedule_id);
-      } else {
-        const typeMap: any = { Quiz: "quiz", "Video training": "video", Training: "training" };
-        filtered = filtered.filter(r => !r.schedule_id && r.content_type === typeMap[filters.trainingType]);
-      }
+      const typeMap: any = { Quiz: "quiz", "Video training": "video", Training: "training" };
+      filtered = filtered.filter(r => r.content_type === typeMap[filters.trainingType]);
     }
     if (filters.dateFrom) filtered = filtered.filter(r => new Date(r.completed_at) >= new Date(filters.dateFrom));
     if (filters.dateTo) filtered = filtered.filter(r => new Date(r.completed_at) <= new Date(filters.dateTo + "T23:59:59"));
@@ -151,15 +142,6 @@ export default function AdminDashboardPage() {
     });
     setFilteredCertificates(filtered);
   }, [certificates, certSearchTerm]);
-
-  const filteredTrainingCompletions = trainingCompletions.filter((t) => {
-    const query = trainingSearchTerm.trim().toLowerCase();
-    if (!query) return true;
-    return (
-      (t.training_title || "").toLowerCase().includes(query) ||
-      (t.user_name || "").toLowerCase().includes(query)
-    );
-  });
 
   const handleFilterChange = (key: string, value: string) => setFilters({ ...filters, [key]: value });
   const clearFilters = () => { setFilters({ user: "", quiz: "", department: "", trainingType: "", dateFrom: "", dateTo: "", minScore: "", maxScore: "" }); setSearchTerm(""); };
@@ -303,7 +285,7 @@ export default function AdminDashboardPage() {
   return (
     <LearningLayout title="Admin Dashboard" description="Quiz results & certificate management">
       {/* Stats Cards - Compact */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
         <div className="bg-white rounded-xl shadow-sm p-3 flex items-center gap-3">
           <div className="flex-shrink-0 bg-blue-50 rounded-lg p-2"><Users className="w-5 h-5 text-blue-600" /></div>
           <div><p className="text-xs font-medium text-gray-500">Attempts</p><p className="text-xl font-bold text-gray-900">{stats.totalAttempts}</p></div>
@@ -320,13 +302,9 @@ export default function AdminDashboardPage() {
           <div className="flex-shrink-0 bg-orange-50 rounded-lg p-2"><Clock className="w-5 h-5 text-orange-600" /></div>
           <div><p className="text-xs font-medium text-gray-500">Avg Time</p><p className="text-xl font-bold text-gray-900">{stats.avgTime.minutes}m {stats.avgTime.seconds}s</p></div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm p-3 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow border-2 border-transparent hover:border-yellow-400" onClick={() => setShowCertificatesView(true)}>
+        <div className="bg-white rounded-xl shadow-sm p-3 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow border-2 border-transparent hover:border-yellow-400 col-span-2 md:col-span-1" onClick={() => setShowCertificatesView(true)}>
           <div className="flex-shrink-0 bg-yellow-50 rounded-lg p-2"><Award className="w-5 h-5 text-yellow-600" /></div>
           <div><p className="text-xs font-medium text-gray-500">Certificates</p><p className="text-xl font-bold text-gray-900">{certificates.length}</p></div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm p-3 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow border-2 border-transparent hover:border-indigo-400 col-span-2 md:col-span-1" onClick={() => setShowTrainingCompletionsView(true)}>
-          <div className="flex-shrink-0 bg-indigo-50 rounded-lg p-2"><CheckCircle className="w-5 h-5 text-indigo-600" /></div>
-          <div><p className="text-xs font-medium text-gray-500">Completed Training</p><p className="text-xl font-bold text-gray-900">{trainingCompletions.length}</p></div>
         </div>
       </div>
 
@@ -386,7 +364,6 @@ export default function AdminDashboardPage() {
                 <option value="Quiz">Quiz</option>
                 <option value="Video training">Video training</option>
                 <option value="Training">Training</option>
-                <option value="Scheduled Training">Scheduled Training</option>
               </select>
             </div>
             <div>
@@ -451,8 +428,8 @@ export default function AdminDashboardPage() {
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">{result.user_department || "N/A"}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">{result.content_title || "N/A"}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-flex px-2.5 py-1 text-[11px] font-semibold rounded-full ${result.schedule_id ? "bg-amber-100 text-amber-800" : result.content_type === "video" ? "bg-blue-100 text-blue-800" : result.content_type === "training" ? "bg-indigo-100 text-indigo-800" : "bg-purple-100 text-purple-800"}`}>
-                          {result.schedule_id ? "Scheduled Training" : result.content_type === "video" ? "Video training" : result.content_type === "training" ? "Training" : "Quiz"}
+                        <span className={`inline-flex px-2.5 py-1 text-[11px] font-semibold rounded-full ${result.content_type === "video" ? "bg-blue-100 text-blue-800" : result.content_type === "training" ? "bg-indigo-100 text-indigo-800" : "bg-purple-100 text-purple-800"}`}>
+                          {result.content_type === "video" ? "Video training" : result.content_type === "training" ? "Training" : "Quiz"}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">{result.correct_answers}/{result.total_questions}</td>
@@ -628,78 +605,6 @@ export default function AdminDashboardPage() {
                   <Award className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">{certSearchTerm ? "No Certificates Found" : "No Certificates Issued"}</h3>
                   <p className="text-gray-600">{certSearchTerm ? "Try adjusting your search criteria." : "No certificates have been issued yet."}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Completed Training View Modal */}
-      {showTrainingCompletionsView && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <div className="flex items-center">
-                <CheckCircle className="w-6 h-6 text-indigo-600 mr-3" />
-                <h2 className="text-xl font-semibold text-gray-900">Completed Training</h2>
-                <span className="ml-3 px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">{filteredTrainingCompletions.length} completed</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <input type="text" value={trainingSearchTerm} onChange={(e) => setTrainingSearchTerm(e.target.value)} placeholder="Search by training or user name" className="rounded-lg border border-gray-200 px-4 py-2 text-sm w-72 focus:border-blue-500 focus:ring-blue-200 focus:outline-none" />
-                <button onClick={() => setShowTrainingCompletionsView(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"><X className="w-6 h-6" /></button>
-              </div>
-            </div>
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-              {filteredTrainingCompletions.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead>
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Training</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">User</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Department</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Score</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Time Taken</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Completed On</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Result</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {filteredTrainingCompletions.map((t: any) => {
-                        const scorePct = t.total_questions > 0 ? Math.round((t.correct_answers / t.total_questions) * 100) : (t.score != null ? Math.round(t.score) : null);
-                        const timeMin = Math.floor((t.time_taken || 0) / 60);
-                        const timeSec = (t.time_taken || 0) % 60;
-                        const passed = t.result_status === "passed";
-                        return (
-                          <tr key={t.attendance_id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{t.training_title || "Untitled"}</td>
-                            <td className="px-4 py-3 text-sm text-gray-700">{t.user_name}</td>
-                            <td className="px-4 py-3 text-sm text-gray-500">{t.user_department || "N/A"}</td>
-                            <td className="px-4 py-3 text-sm font-semibold text-gray-900">{scorePct !== null ? `${scorePct}%` : "-"}</td>
-                            <td className="px-4 py-3 text-sm text-gray-500">{t.time_taken ? `${timeMin}m ${timeSec}s` : "-"}</td>
-                            <td className="px-4 py-3 text-sm text-gray-500">{t.check_out_time ? new Date(t.check_out_time).toLocaleString() : "-"}</td>
-                            <td className="px-4 py-3 text-sm">
-                              {t.result_status ? (
-                                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${passed ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                                  {passed ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                                  {passed ? "Passed" : "Failed"}
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">Attended</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <CheckCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">{trainingSearchTerm ? "No Completed Training Found" : "No Training Completed Yet"}</h3>
-                  <p className="text-gray-600">{trainingSearchTerm ? "Try adjusting your search criteria." : "Scheduled training completions will appear here once users finish them."}</p>
                 </div>
               )}
             </div>

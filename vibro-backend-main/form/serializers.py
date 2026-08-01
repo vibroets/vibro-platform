@@ -1469,10 +1469,15 @@ class CompactFormSerializer(serializers.ModelSerializer):
         return "N/A"
     
     def get_response_count(self, obj):
-        # Return annotated response count if available, otherwise count only valid main submissions.
-        if hasattr(obj, 'response_count'):
+        # Return annotated response count if available, otherwise count only completed submissions.
+        if hasattr(obj, 'response_count') and obj.response_count is not None:
             return obj.response_count
-        return obj.submissions.filter(submission_initiated_stage__isnull=False).count()
+        from django.db.models import Q
+        return obj.submissions.filter(
+            Q(submission_initiated_stage__isnull=False) |
+            Q(group_submissions_history__isnull=False) |
+            Q(stage_submissions_history__isnull=False)
+        ).distinct().count()
 
     def get_status(self, obj):
         return getattr(obj, 'status', None)
@@ -2182,8 +2187,13 @@ class FormListSerializer(serializers.ModelSerializer):
             return count
     
     def get_response_count(self, obj):
-        # Count only true main form submissions; exclude task-close submissions.
-        return obj.submissions.filter(submission_initiated_stage__isnull=False).count()
+        # Count only completed submissions (with stage/audit histories).
+        from django.db.models import Q
+        return obj.submissions.filter(
+            Q(submission_initiated_stage__isnull=False) |
+            Q(group_submissions_history__isnull=False) |
+            Q(stage_submissions_history__isnull=False)
+        ).distinct().count()
     
     def get_deleted_by(self, obj):
         if obj.deletedBy:
