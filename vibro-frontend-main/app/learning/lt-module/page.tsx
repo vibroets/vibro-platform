@@ -28,7 +28,7 @@ interface TrainingForm {
   questionsPerUser: number; timeLimit: number; passPercentage: number; allowSkip: boolean;
   issueCertificate: boolean; validityPeriod: number; validityUnit: string;
   accessMode: string; reassignOnFail: boolean; rescheduleDays: number;
-  questions: Question[]; selectedUsers: string[];
+  questions: Question[]; selectedUsers: string[]; selectedGroups: string[]; selectedLocations: string[];
 }
 
 const defaultQuizForm: QuizForm = {
@@ -49,7 +49,7 @@ const defaultTrainingForm: TrainingForm = {
   allowDownload: false, allowPrint: false, allowShare: false, followUpType: "", followUpId: "",
   questionsPerUser: 15, timeLimit: 30, passPercentage: 70, allowSkip: false,
   issueCertificate: false, validityPeriod: 1, validityUnit: "years",
-  accessMode: "permanent", reassignOnFail: false, rescheduleDays: 7, questions: [], selectedUsers: [],
+  accessMode: "permanent", reassignOnFail: false, rescheduleDays: 7, questions: [], selectedUsers: [], selectedGroups: [], selectedLocations: [],
 };
 
 export default function LTModulePage() {
@@ -65,6 +65,7 @@ export default function LTModulePage() {
   const [users, setUsers] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
+  const [formShareTab, setFormShareTab] = useState<"users" | "groups" | "locations">("users");
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareItem, setShareItem] = useState<any>(null);
   const [shareUserIds, setShareUserIds] = useState<string[]>([]);
@@ -127,6 +128,7 @@ export default function LTModulePage() {
   const openCreate = () => {
     setEditingItem(null);
     setQuizForm(defaultQuizForm); setVideoForm(defaultVideoForm); setTrainingForm(defaultTrainingForm);
+    setFormShareTab("users");
     setShowForm(true);
   };
 
@@ -197,6 +199,8 @@ export default function LTModulePage() {
         rescheduleDays: item.reschedule_days ?? 7,
         questions: item.questions || [],
         selectedUsers: item.selected_users || [],
+        selectedGroups: item.selected_groups || [],
+        selectedLocations: item.selected_locations || [],
       });
     }
     setShowForm(true);
@@ -283,8 +287,8 @@ export default function LTModulePage() {
         reschedule_days: trainingForm.rescheduleDays,
         questions: trainingForm.questions,
         selected_users: trainingForm.selectedUsers,
-        selected_groups: [],
-        selected_locations: [],
+        selected_groups: trainingForm.selectedGroups,
+        selected_locations: trainingForm.selectedLocations,
         is_draft: false,
       };
       if (trainingForm.file) {
@@ -649,30 +653,81 @@ export default function LTModulePage() {
       {renderAccessMode(trainingForm, setTrainingForm)}
       {renderReassignment(trainingForm, setTrainingForm)}
       <div className="border-t pt-6">
-        <h3 className="text-md font-semibold text-gray-900 mb-4">Assign to Users</h3>
-        {users.length === 0 ? (
-          <p className="text-sm text-gray-500 italic">No users available. Add users first to assign this training.</p>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-48 overflow-y-auto p-2 border border-gray-200 rounded-lg">
-            {users.map((user: any) => (
-              <label key={user.id} className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={trainingForm.selectedUsers.includes(String(user.id))}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setTrainingForm({ ...trainingForm, selectedUsers: [...trainingForm.selectedUsers, String(user.id)] });
-                    } else {
-                      setTrainingForm({ ...trainingForm, selectedUsers: trainingForm.selectedUsers.filter((id: string) => id !== String(user.id)) });
-                    }
-                  }}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">{user.first_name} {user.last_name}</span>
+        <h3 className="text-md font-semibold text-gray-900 mb-4 flex items-center gap-2"><Share2 className="w-4 h-4" /> Share Content</h3>
+        <p className="text-sm text-gray-600 mb-3">Share this training with users, groups, or locations:</p>
+
+        {/* Share tabs */}
+        <div className="flex gap-2 mb-3">
+          <button type="button" onClick={() => setFormShareTab("users")} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${formShareTab === "users" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+            <Users className="w-4 h-4" /> Users {trainingForm.selectedUsers.length > 0 && <span className="ml-1 bg-white/20 px-1.5 rounded-full text-xs">{trainingForm.selectedUsers.length}</span>}
+          </button>
+          <button type="button" onClick={() => setFormShareTab("groups")} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${formShareTab === "groups" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+            <Building2 className="w-4 h-4" /> Groups {trainingForm.selectedGroups.length > 0 && <span className="ml-1 bg-white/20 px-1.5 rounded-full text-xs">{trainingForm.selectedGroups.length}</span>}
+          </button>
+          <button type="button" onClick={() => setFormShareTab("locations")} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${formShareTab === "locations" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+            <MapPin className="w-4 h-4" /> Locations {trainingForm.selectedLocations.length > 0 && <span className="ml-1 bg-white/20 px-1.5 rounded-full text-xs">{trainingForm.selectedLocations.length}</span>}
+          </button>
+        </div>
+
+        {/* Share list */}
+        <div className="max-h-48 overflow-y-auto border rounded-lg p-3 space-y-1">
+          {formShareTab === "users" && (
+            users.length === 0 ? <p className="text-sm text-gray-500 text-center py-4">No users available</p> :
+            users.map((user: any) => (
+              <label key={user.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                <input type="checkbox" checked={trainingForm.selectedUsers.includes(String(user.id))} onChange={() => {
+                  setTrainingForm(prev => prev.selectedUsers.includes(String(user.id))
+                    ? { ...prev, selectedUsers: prev.selectedUsers.filter(id => id !== String(user.id)) }
+                    : { ...prev, selectedUsers: [...prev.selectedUsers, String(user.id)] });
+                }} className="rounded text-blue-600" />
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-xs font-medium text-blue-700">{(user.first_name?.[0] || "").toUpperCase()}{(user.last_name?.[0] || "").toUpperCase()}</div>
+                  <div>
+                    <p className="text-sm text-gray-800">{user.first_name} {user.last_name}</p>
+                    <p className="text-xs text-gray-500">{user.email}</p>
+                  </div>
+                </div>
               </label>
-            ))}
-          </div>
-        )}
+            ))
+          )}
+          {formShareTab === "groups" && (
+            groups.length === 0 ? <p className="text-sm text-gray-500 text-center py-4">No groups available</p> :
+            groups.map((group: any) => (
+              <label key={group.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                <input type="checkbox" checked={trainingForm.selectedGroups.includes(String(group.id))} onChange={() => {
+                  setTrainingForm(prev => prev.selectedGroups.includes(String(group.id))
+                    ? { ...prev, selectedGroups: prev.selectedGroups.filter(id => id !== String(group.id)) }
+                    : { ...prev, selectedGroups: [...prev.selectedGroups, String(group.id)] });
+                }} className="rounded text-blue-600" />
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center"><Building2 className="w-3.5 h-3.5 text-purple-700" /></div>
+                  <span className="text-sm text-gray-800">{group.name}</span>
+                </div>
+              </label>
+            ))
+          )}
+          {formShareTab === "locations" && (
+            locations.length === 0 ? <p className="text-sm text-gray-500 text-center py-4">No locations available</p> :
+            locations.map((loc: any) => (
+              <label key={loc.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                <input type="checkbox" checked={trainingForm.selectedLocations.includes(String(loc.id))} onChange={() => {
+                  setTrainingForm(prev => prev.selectedLocations.includes(String(loc.id))
+                    ? { ...prev, selectedLocations: prev.selectedLocations.filter(id => id !== String(loc.id)) }
+                    : { ...prev, selectedLocations: [...prev.selectedLocations, String(loc.id)] });
+                }} className="rounded text-blue-600" />
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center"><MapPin className="w-3.5 h-3.5 text-green-700" /></div>
+                  <span className="text-sm text-gray-800">{loc.name}</span>
+                </div>
+              </label>
+            ))
+          )}
+        </div>
+
+        {/* Summary */}
+        <div className="mt-2 text-xs text-gray-500">
+          {trainingForm.selectedUsers.length + trainingForm.selectedGroups.length + trainingForm.selectedLocations.length} selection(s): {trainingForm.selectedUsers.length} users, {trainingForm.selectedGroups.length} groups, {trainingForm.selectedLocations.length} locations
+        </div>
       </div>
       {renderFormButtons(editingItem ? "Update Training" : "Save Training")}
     </form>
