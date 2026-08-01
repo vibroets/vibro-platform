@@ -8,7 +8,7 @@ router.register(r'group-requests', GroupRequestViewSet, basename='grouprequest')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('chat/users/', OrganizationUsersView.as_view(), name='chat-users'),
-    path('chat/groups/', OrganizationGroupsView.as_view(), name='chat-groups-list'),
-    path('chat/create-group/', CreateChatGroupView.as_view(), name='chat-create-group'),
+    path('users/', OrganizationUsersView.as_view(), name='chat-users'),
+    path('groups/', OrganizationGroupsView.as_view(), name='chat-groups-list'),
+    path('create-group/', CreateChatGroupView.as_view(), name='chat-create-group'),
 ]

@@ -148,7 +148,7 @@ export default function ChatBot() {
 
   const fetchOrgUsers = useCallback(async () => {
     try {
-      const res = await axiosInstance.get("/chat/chat/users/");
+      const res = await axiosInstance.get("/chat/users/");
       setOrgUsers(res.data);
     } catch (e) {
       console.warn("fetchOrgUsers error:", e);
@@ -157,7 +157,7 @@ export default function ChatBot() {
 
   const fetchOrgGroups = useCallback(async () => {
     try {
-      const res = await axiosInstance.get("/chat/chat/groups/");
+      const res = await axiosInstance.get("/chat/groups/");
       setOrgGroups(res.data);
     } catch (e) {
       console.warn("fetchOrgGroups error:", e);
