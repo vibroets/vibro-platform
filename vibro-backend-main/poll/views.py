@@ -82,7 +82,14 @@ class PollViewSet(viewsets.ModelViewSet):
             serializer.save(user=response_user)
             created.append(serializer.data)
 
+        # Update share status for direct user shares
         PollShare.objects.filter(poll=poll, sent_to_user=user).update(share_status='submitted')
+        # Also update group shares where the user is a member of the group
+        user_group_ids = Groups.objects.filter(members=user).values_list('id', flat=True)
+        PollShare.objects.filter(poll=poll, sent_to_group_id__in=user_group_ids).update(share_status='submitted')
+        # Also update location shares where the user belongs to that location
+        if user.location_id:
+            PollShare.objects.filter(poll=poll, sent_to_location_id=user.location_id).update(share_status='submitted')
         return Response({"submitted_count": len(created), "responses": created}, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['get'])
