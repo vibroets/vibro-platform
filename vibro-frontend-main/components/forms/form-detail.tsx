@@ -197,6 +197,15 @@ export function FormDetail({ id, onFolderId, status, plannerLocation, plannerOrd
   const [followupStatusData, setFollowupStatusData] = useState<any[]>([]);
   const [totalFollowups, setTotalFollowups] = useState(0);
 
+  // Bulk import state
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importUsers, setImportUsers] = useState<any[]>([]);
+  const [importGroups, setImportGroups] = useState<any[]>([]);
+  const [importSelectedUsers, setImportSelectedUsers] = useState<number[]>([]);
+  const [importSelectedGroups, setImportSelectedGroups] = useState<number[]>([]);
+
   const [nameFilter, setNameFilter] = useState("");
   const [designationFilter, setDesignationFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
@@ -777,25 +786,72 @@ export function FormDetail({ id, onFolderId, status, plannerLocation, plannerOrd
     }
   };
 
-  const exportFormDefinition = async () => {
+  const downloadImportTemplate = async () => {
     if (!id) return;
     try {
-      const response = await axiosInstance.get(`/forms/${id}/export-excel/`, { responseType: "blob" });
-      const contentDisposition = response.headers["content-disposition"];
-      const filename = contentDisposition?.match(/filename="?([^"]+)"?/)?.[1] || `form_${id}_definition.xlsx`;
+      const response = await axiosInstance.get(`/forms/${id}/import-template`, { responseType: "blob" });
       const blob = new Blob([response.data], {
         type: response.headers["content-type"] || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
+      const contentDisposition = response.headers["content-disposition"];
+      const filename = contentDisposition?.match(/filename="?([^"]+)"?/)?.[1] || `import_template_form_${id}.xlsx`;
       const link = document.createElement("a");
       link.href = window.URL.createObjectURL(blob);
       link.download = filename;
       document.body.appendChild(link);
       link.click();
-      link.remove();
+      document.body.removeChild(link);
       window.URL.revokeObjectURL(link.href);
     } catch (error) {
-      console.error("Error exporting form definition:", error);
-      hotToaster.error("Failed to export form definition.");
+      console.error("Error downloading template:", error);
+      hotToaster.error("Failed to download template.");
+    }
+  };
+
+  const fetchImportUsersGroups = async () => {
+    try {
+      const [usersRes, groupsRes] = await Promise.all([
+        axiosInstance.get("/users/list"),
+        axiosInstance.get("/groups/"),
+      ]);
+      setImportUsers(usersRes.data || []);
+      setImportGroups(groupsRes.data || []);
+    } catch (error) {
+      console.error("Error fetching users/groups for import:", error);
+    }
+  };
+
+  const handleBulkImport = async () => {
+    if (!importFile || !id) return;
+    setImportLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", importFile);
+      if (importSelectedUsers.length > 0) {
+        formData.append("assign_user_ids", importSelectedUsers.join(","));
+      }
+      if (importSelectedGroups.length > 0) {
+        formData.append("assign_group_ids", importSelectedGroups.join(","));
+      }
+      const response = await axiosInstance.post(
+        `/forms/${id}/import-responses-followup`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      hotToaster.success(
+        `Import successful: ${response.data.created_submissions} responses, ${response.data.created_answers} answers, ${response.data.created_tasks} tasks` +
+        (response.data.total_errors > 0 ? ` (${response.data.total_errors} warnings)` : "")
+      );
+      setImportDialogOpen(false);
+      setImportFile(null);
+      setImportSelectedUsers([]);
+      setImportSelectedGroups([]);
+      fetchFollowupTable();
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || "Import failed.";
+      hotToaster.error(msg);
+    } finally {
+      setImportLoading(false);
     }
   };
 
@@ -1775,10 +1831,16 @@ export function FormDetail({ id, onFolderId, status, plannerLocation, plannerOrd
         </div>
 
         <div className="flex flex-wrap gap-2 mr-4">
-          <Button variant="outline" onClick={exportFormDefinition} disabled={isFailed}>
+          <Button variant="outline" onClick={downloadImportTemplate} disabled={isFailed}>
             <Download className="mr-2 h-4 w-4" />
-            Export Form
+            Download Template
           </Button>
+          {isSuperAdmin && (
+            <Button variant="outline" onClick={() => { fetchImportUsersGroups(); setImportDialogOpen(true) }} disabled={isFailed}>
+              <Upload className="mr-2 h-4 w-4" />
+              Import Responses
+            </Button>
+          )}
           {canEdit && (
             <Button variant="outline" onClick={handleEditForm}
               disabled={viewformData?.is_archived}>
@@ -3400,6 +3462,138 @@ export function FormDetail({ id, onFolderId, status, plannerLocation, plannerOrd
               Cancel
             </Button>
             <Button onClick={confirmBulkAssignResponses}>Assign</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog for bulk import responses with followup data */}
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Import Responses with Followup Data</DialogTitle>
+            <DialogDescription>
+              Upload an Excel file in the same format as the &quot;Responses with Followup Data&quot; table.
+              Response ID, Source ID, and Followup Response Submission ID columns can be blank. Rows with &quot;NC Closure Task&quot; in the Follow up action Title will be auto-assigned to the selected users/groups.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Download template */}
+            <div className="flex items-center justify-between bg-slate-50 border rounded-md p-3">
+              <div>
+                <p className="text-sm font-medium text-slate-700">Download Template</p>
+                <p className="text-xs text-slate-500 mt-0.5">Get the Excel template with correct headers, a sample row, and instructions.</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={downloadImportTemplate}
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Template
+              </Button>
+            </div>
+
+            {/* File upload */}
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Excel File</Label>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                className="w-full text-sm border rounded-md p-2 cursor-pointer file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              {importFile && (
+                <p className="text-xs text-slate-500 mt-1">Selected: {importFile.name}</p>
+              )}
+            </div>
+
+            {/* NC Closure Task assignment */}
+            <div className="border rounded-lg p-4 space-y-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">NC Closure Task Assignment</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Select users/groups to auto-assign tasks where the Follow up action Title contains &quot;NC Closure Task&quot;.
+                </p>
+              </div>
+
+              {/* Users selection */}
+              <div>
+                <Label className="text-xs font-medium mb-1.5 block">Assign to Users</Label>
+                <div className="border rounded-md max-h-32 overflow-y-auto">
+                  {importUsers.length === 0 ? (
+                    <p className="text-xs text-slate-400 p-3 text-center">Loading users...</p>
+                  ) : (
+                    importUsers.map((u: any) => (
+                      <label
+                        key={u.id}
+                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 cursor-pointer text-sm"
+                      >
+                        <Checkbox
+                          checked={importSelectedUsers.includes(u.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setImportSelectedUsers([...importSelectedUsers, u.id]);
+                            } else {
+                              setImportSelectedUsers(importSelectedUsers.filter((x) => x !== u.id));
+                            }
+                          }}
+                        />
+                        <span>{u.first_name} {u.last_name} ({u.username})</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Groups selection */}
+              <div>
+                <Label className="text-xs font-medium mb-1.5 block">Assign to Groups</Label>
+                <div className="border rounded-md max-h-32 overflow-y-auto">
+                  {importGroups.length === 0 ? (
+                    <p className="text-xs text-slate-400 p-3 text-center">Loading groups...</p>
+                  ) : (
+                    importGroups.map((g: any) => (
+                      <label
+                        key={g.id}
+                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 cursor-pointer text-sm"
+                      >
+                        <Checkbox
+                          checked={importSelectedGroups.includes(g.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setImportSelectedGroups([...importSelectedGroups, g.id]);
+                            } else {
+                              setImportSelectedGroups(importSelectedGroups.filter((x) => x !== g.id));
+                            }
+                          }}
+                        />
+                        <span>{g.name || g.group_name || `Group ${g.id}`}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkImport}
+              disabled={!importFile || importLoading}
+            >
+              {importLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                "Import"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

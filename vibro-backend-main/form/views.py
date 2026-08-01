@@ -1018,6 +1018,114 @@ class FormViewSet(userContextAPIView, ModelViewSet):
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
+    @action(detail=True, methods=["get"], url_path="export-excel")
+    def export_excel(self, request, pk=None):
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill
+        from io import BytesIO
+        from django.http import HttpResponse
+
+        form = self.get_object()
+        wb = openpyxl.Workbook()
+
+        # Sheet 1: Form Info
+        ws_info = wb.active
+        ws_info.title = "Form Info"
+        ws_info.append(["Field", "Value"])
+        for cell in ws_info[1]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="2196F3", end_color="2196F3", fill_type="solid")
+        ws_info.append(["ID", form.id])
+        ws_info.append(["Title", form.title])
+        ws_info.append(["Form Type", form.form_type])
+        ws_info.append(["Prefix", getattr(form, "prefix", "") or ""])
+        ws_info.append(["Description", getattr(form, "description", "") or ""])
+        ws_info.column_dimensions["A"].width = 25
+        ws_info.column_dimensions["B"].width = 50
+
+        # Sheet 2: Stages
+        ws_stages = wb.create_sheet("Stages")
+        ws_stages.append(["Stage #", "Stage Name", "Stage UUID"])
+        for cell in ws_stages[1]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="2196F3", end_color="2196F3", fill_type="solid")
+        for i, stage in enumerate(form.stages.all().order_by("id"), 1):
+            ws_stages.append([i, stage.name, stage.stage_uuid])
+        ws_stages.column_dimensions["A"].width = 10
+        ws_stages.column_dimensions["B"].width = 40
+        ws_stages.column_dimensions["C"].width = 40
+
+        # Sheet 3: Questions
+        ws_q = wb.create_sheet("Questions")
+        ws_q.append(["Stage", "Question", "Type", "Sub Type", "Required", "Options"])
+        for cell in ws_q[1]:
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="2196F3", end_color="2196F3", fill_type="solid")
+        for stage in form.stages.all().order_by("id"):
+            for q in stage.questions.all().order_by("id"):
+                options = ", ".join([o.option for o in q.options.all().order_by("id")])
+                ws_q.append([
+                    stage.name,
+                    q.question,
+                    q.question_type,
+                    getattr(q, "question_sub_type", "") or "",
+                    "Yes" if getattr(q, "is_required", False) else "No",
+                    options,
+                ])
+        ws_q.column_dimensions["A"].width = 30
+        ws_q.column_dimensions["B"].width = 50
+        ws_q.column_dimensions["C"].width = 15
+        ws_q.column_dimensions["D"].width = 15
+        ws_q.column_dimensions["E"].width = 10
+        ws_q.column_dimensions["F"].width = 50
+
+        # Sheet 4: Audit Groups
+        if form.form_type == "audit":
+            ws_ag = wb.create_sheet("Audit Groups")
+            ws_ag.append(["Group #", "Group Name", "Order"])
+            for cell in ws_ag[1]:
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = PatternFill(start_color="2196F3", end_color="2196F3", fill_type="solid")
+            for i, ag in enumerate(form.audit_group.all().order_by("order", "id"), 1):
+                ws_ag.append([i, ag.name, ag.order])
+            ws_ag.column_dimensions["A"].width = 10
+            ws_ag.column_dimensions["B"].width = 40
+            ws_ag.column_dimensions["C"].width = 10
+
+            # Audit group questions
+            ws_agq = wb.create_sheet("Audit Group Questions")
+            ws_agq.append(["Group", "Question", "Type", "Required", "Options"])
+            for cell in ws_agq[1]:
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = PatternFill(start_color="2196F3", end_color="2196F3", fill_type="solid")
+            for ag in form.audit_group.all().order_by("order", "id"):
+                for q in ag.questions.all().order_by("id"):
+                    options = ", ".join([o.option for o in q.options.all().order_by("id")])
+                    ws_agq.append([
+                        ag.name,
+                        q.question,
+                        q.question_type,
+                        "Yes" if getattr(q, "is_required", False) else "No",
+                        options,
+                    ])
+            ws_agq.column_dimensions["A"].width = 30
+            ws_agq.column_dimensions["B"].width = 50
+            ws_agq.column_dimensions["C"].width = 15
+            ws_agq.column_dimensions["D"].width = 10
+            ws_agq.column_dimensions["E"].width = 50
+
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        response = HttpResponse(
+            buffer.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = f'attachment; filename="form_{form.id}_definition.xlsx"'
+        return response
+
+
 class FormBatchMetadataView(APIView):
     """Lightweight endpoint returning only id, title, form_type, prefix for multiple forms.
     Accepts ?ids=1,2,3 query param. Used by mobile app to avoid slow full form fetches."""
@@ -12825,3 +12933,828 @@ class PreviousSubmissionsView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class BulkImportResponsesFollowupView(APIView):
+    """
+    Bulk import form responses with followup task data from an Excel file.
+    The Excel format matches the 'Responses with Followup Data' table in the analytics tab.
+    Response ID and Source ID columns can be blank — they are generated dynamically.
+    When 'Follow up action Title' contains 'NC Closure Task', the task is auto-assigned
+    to the specified users/groups.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, form_id):
+        try:
+            form = Form.objects.filter(id=form_id, organization=request.user.organization).first()
+            if not form:
+                return Response({"error": "Form not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            excel_file = request.FILES.get('file')
+            if not excel_file:
+                return Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
+
+            assign_user_ids = request.data.get('assign_user_ids', [])
+            assign_group_ids = request.data.get('assign_group_ids', [])
+            if isinstance(assign_user_ids, str):
+                assign_user_ids = [int(x) for x in assign_user_ids.split(',') if x.strip()]
+            if isinstance(assign_group_ids, str):
+                assign_group_ids = [int(x) for x in assign_group_ids.split(',') if x.strip()]
+
+            df = pd.read_excel(excel_file, engine='openpyxl')
+            df.columns = [str(c).strip() for c in df.columns]
+
+            required_cols = ['Submission Date', 'Initiated By', 'Group Title', 'Item', 'Response']
+            missing = [c for c in required_cols if c not in df.columns]
+            if missing:
+                return Response({"error": f"Missing required columns: {', '.join(missing)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+            questions_qs = Question.objects.filter(form_id=form_id, organization=request.user.organization).select_related('stage', 'audit_group')
+            question_text_map = {}
+            stage_question_map = {}
+            sub_question_map = {}
+            logic_question_map = {}
+            for q in questions_qs:
+                key = q.question.strip().lower()
+                if key not in question_text_map:
+                    question_text_map[key] = q
+                stage_name = ''
+                if q.stage:
+                    stage_name = q.stage.name.strip().lower()
+                elif q.audit_group:
+                    stage_name = q.audit_group.name.strip().lower()
+                if stage_name:
+                    sk = (stage_name, key)
+                    if sk not in stage_question_map:
+                        stage_question_map[sk] = q
+                children = list(q.child_questions.all())
+                if children:
+                    sub_question_map[q.id] = {}
+                    for child in children:
+                        ck = child.question.strip().lower()
+                        if ck not in question_text_map:
+                            question_text_map[ck] = child
+                        sub_question_map[q.id][ck] = child
+
+            logic_question_map = {}
+            for logic in Logic.objects.filter(form_id=form_id).select_related('question').prefetch_related('logic_questions'):
+                q_id = logic.question_id
+                lv = (logic.logic_value or '').strip().lower()
+                if q_id not in logic_question_map:
+                    logic_question_map[q_id] = {}
+                if lv not in logic_question_map[q_id]:
+                    logic_question_map[q_id][lv] = {}
+                for lq in logic.logic_questions.all():
+                    lq_key = lq.question.strip().lower()
+                    logic_question_map[q_id][lv][lq_key] = lq
+
+            stages_map = {}
+            for s in Stage.objects.filter(form_id=form_id):
+                stages_map[s.name.strip().lower()] = s
+            audit_groups_map = {}
+            for ag in AuditGroup.objects.filter(form_id=form_id):
+                audit_groups_map[ag.name.strip().lower()] = ag
+
+            audit_info_questions = {}
+            try:
+                audit_info = AuditInfo.objects.filter(form_id=form_id).first()
+                if audit_info:
+                    for q in Question.objects.filter(audit_info=audit_info):
+                        q_text = q.question.strip().lower()
+                        audit_info_questions[q_text] = q
+            except Exception:
+                pass
+
+            logic_followup_close_map = {}
+            followup_configured_question_ids = set()
+            logic_followup_config_map = {}
+            try:
+                for lf in LogicFollowUp.objects.filter(form_id=form_id, followup_toggle=True).prefetch_related('task_close_questions'):
+                    q_id = lf.question_id
+                    followup_configured_question_ids.add(q_id)
+                    title_key = (lf.title or '').strip().lower()
+                    if q_id not in logic_followup_close_map:
+                        logic_followup_close_map[q_id] = {}
+                    logic_followup_close_map[q_id][title_key] = list(lf.task_close_questions.all())
+                    if q_id not in logic_followup_config_map:
+                        logic_followup_config_map[q_id] = lf
+            except Exception:
+                pass
+
+            status_reverse_map = {
+                'not started': 'not_started',
+                'not assigned': 'not_assigned',
+                'in progress': 'in_progress',
+                'completed': 'completed',
+                'cancelled': 'cancelled',
+            }
+
+            df = df.fillna('')
+
+            for fill_col in ['Audited Location', 'Source ID', 'Source Type']:
+                if fill_col in df.columns:
+                    df[fill_col] = df[fill_col].replace('', pd.NA).ffill().fillna('')
+
+            if 'Response ID' in df.columns and df['Response ID'].astype(str).str.strip().any():
+                df['_group_key'] = df['Response ID'].astype(str).str.strip()
+            else:
+                group_parts = df['Submission Date'].astype(str) + '||' + df['Initiated By'].astype(str)
+                if 'Audited Location' in df.columns:
+                    group_parts = group_parts + '||' + df['Audited Location'].astype(str).str.strip()
+                if 'Source ID' in df.columns:
+                    group_parts = group_parts + '||' + df['Source ID'].astype(str).str.strip()
+                df['_group_key'] = group_parts
+
+            org = request.user.organization
+            user = request.user
+
+            created_submissions = 0
+            created_answers = 0
+            created_tasks = 0
+            errors = []
+
+            first_stage = Stage.objects.filter(form_id=form_id).order_by('order').first()
+            form_prefix = form.prefix or 'NPX'
+
+            for group_key, group_df in df.groupby('_group_key', sort=False):
+                if not group_key or group_key == 'nan':
+                    continue
+
+                first_row = group_df.iloc[0]
+
+                submission_date_str = str(first_row.get('Submission Date', '')).strip()
+                submission_date = None
+                if submission_date_str and submission_date_str != 'nan':
+                    for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%d-%m-%Y %H:%M', '%d/%m/%Y %H:%M']:
+                        try:
+                            submission_date = datetime.strptime(submission_date_str, fmt)
+                            break
+                        except ValueError:
+                            continue
+                    if not submission_date:
+                        try:
+                            submission_date = pd.to_datetime(submission_date_str).to_pydatetime()
+                        except Exception:
+                            submission_date = timezone.now()
+                else:
+                    submission_date = timezone.now()
+
+                initiated_by_name = str(first_row.get('Initiated By', '')).strip()
+                initiated_by_user = None
+                if initiated_by_name and initiated_by_name != 'nan':
+                    parts = initiated_by_name.split()
+                    if len(parts) >= 2:
+                        user_qs = CustomUser.objects.filter(
+                            first_name=parts[0],
+                            last_name=' '.join(parts[1:]),
+                            organization=org
+                        ).first()
+                        if user_qs:
+                            initiated_by_user = user_qs
+                    if not initiated_by_user:
+                        user_qs = CustomUser.objects.filter(
+                            username=initiated_by_name,
+                            organization=org
+                        ).first()
+                        if user_qs:
+                            initiated_by_user = user_qs
+                    if not initiated_by_user:
+                        initiated_by_user = user
+
+                submission = FormSubmision.objects.create(
+                    form=form,
+                    submission_initiated_stage=first_stage,
+                    submission_initiated_by=initiated_by_user,
+                    is_completed=True,
+                    completed_by=initiated_by_user,
+                    completed_on=submission_date,
+                    organization=org,
+                )
+                FormSubmision.objects.filter(id=submission.id).update(submission_initiated_on=submission_date)
+                created_submissions += 1
+
+                audit_metadata_cols = {
+                    'Audited Location': 'audited location',
+                    'Ambient Temperature': 'ambient temperature',
+                    'Total Production': 'total production',
+                }
+                for col_name, q_key in audit_metadata_cols.items():
+                    col_val = str(first_row.get(col_name, '')).strip()
+                    if col_val and col_val != 'nan':
+                        audit_q = audit_info_questions.get(q_key)
+                        if not audit_q:
+                            for ai_key, ai_q in audit_info_questions.items():
+                                if q_key in ai_key or ai_key in q_key:
+                                    audit_q = ai_q
+                                    break
+                        if audit_q:
+                            Answer.objects.create(
+                                Form=form,
+                                stage=None,
+                                question=audit_q,
+                                question_type=audit_q.question_type,
+                                user=initiated_by_user,
+                                answer=col_val,
+                                submitted_by=initiated_by_user,
+                                submission=submission,
+                                organization=org,
+                            )
+                            created_answers += 1
+
+                overall_status_val = str(first_row.get('Overall Status', '')).strip()
+                if overall_status_val == 'nan':
+                    overall_status_val = ''
+                total_score_val = str(first_row.get('Total Score (%)', '')).strip()
+                if total_score_val == 'nan':
+                    total_score_val = ''
+                if overall_status_val or total_score_val:
+                    try:
+                        AuditFormSubmissionHistory.objects.create(
+                            form_submission=submission,
+                            group_assignment_uuid=str(submission.id),
+                            completed_by=initiated_by_user,
+                            organization=org,
+                            form_overall_status=overall_status_val if overall_status_val else None,
+                            form_overall_score=Decimal(total_score_val) if total_score_val else None,
+                            form_id=form,
+                        )
+                    except Exception as e:
+                        errors.append(f"Could not create AuditFormSubmissionHistory: {str(e)}")
+
+                source_type_val = str(first_row.get('Source Type', '')).strip()
+                source_id_val = str(first_row.get('Source ID', '')).strip()
+                if source_type_val == 'nan':
+                    source_type_val = ''
+                if source_id_val == 'nan':
+                    source_id_val = ''
+
+                audited_location = str(first_row.get('Audited Location', '')).strip()
+                if audited_location == 'nan':
+                    audited_location = ''
+
+                if source_type_val.lower() == 'planner':
+                    try:
+                        from planner.models import PlannerSubmission, PlannerAssignment
+                        import uuid
+
+                        if not source_id_val:
+                            loc_slug = audited_location.replace(' ', '').upper()[:4] if audited_location else 'AUTO'
+                            source_id_val = f'{loc_slug}{uuid.uuid4().hex[:6].upper()}'
+
+                        pa = PlannerAssignment.objects.filter(
+                            order_id=source_id_val,
+                            organization=org
+                        ).first()
+
+                        if not pa:
+                            from user.models import Locations
+                            loc_obj = None
+                            if audited_location:
+                                loc_obj = Locations.objects.filter(
+                                    name__iexact=audited_location,
+                                    organization=org
+                                ).first()
+
+                            pa = PlannerAssignment.objects.create(
+                                order_id=source_id_val,
+                                assign_type='user',
+                                planner_name=f'{form.title} - {audited_location}' if audited_location else form.title,
+                                form=form,
+                                user=initiated_by_user,
+                                location=loc_obj,
+                                start_date=submission_date,
+                                end_date=submission_date,
+                                is_completed=True,
+                                completed_on=submission_date,
+                                completed_by=initiated_by_user,
+                            )
+
+                        PlannerSubmission.objects.create(
+                            planner_assignment=pa,
+                            form_submission=submission,
+                            submitted_by=initiated_by_user,
+                            followup_tasks_created=True,
+                        )
+                    except Exception as e:
+                        errors.append(f"Could not create PlannerSubmission for source_id={source_id_val}: {str(e)}")
+
+                created_task_keys = set()
+
+                for _, row in group_df.iterrows():
+                    item_text = str(row.get('Item', '')).strip()
+                    response_text = str(row.get('Response', '')).strip()
+
+                    if not item_text or item_text == 'nan':
+                        continue
+
+                    group_title = str(row.get('Group Title', '')).strip()
+                    if group_title == 'nan':
+                        group_title = ''
+                    stage_obj = None
+                    if group_title:
+                        stage_obj = stages_map.get(group_title.lower())
+                        if not stage_obj:
+                            stage_obj = audit_groups_map.get(group_title.lower())
+
+                    q_key = item_text.lower()
+                    question_obj = question_text_map.get(q_key)
+
+                    if not question_obj and group_title:
+                        stage_key = group_title.lower()
+                        question_obj = stage_question_map.get((stage_key, q_key))
+
+                    if not question_obj and group_title:
+                        stage_key = group_title.lower()
+                        for (sk, mq_text), mq in stage_question_map.items():
+                            if sk == stage_key and (q_key in mq_text or mq_text in q_key):
+                                question_obj = mq
+                                break
+
+                    if not question_obj:
+                        for map_key, map_q in question_text_map.items():
+                            if q_key in map_key or map_key in q_key:
+                                question_obj = map_q
+                                break
+
+                    if not question_obj:
+                        errors.append(f"Could not match question: '{item_text}' in response {group_key}")
+                        continue
+
+                    remarks = str(row.get('Remarks', '')).strip()
+                    if remarks == 'nan':
+                        remarks = ''
+
+                    answer = Answer.objects.create(
+                        Form=form,
+                        stage=question_obj.stage if question_obj.stage else (stage_obj if isinstance(stage_obj, Stage) else None),
+                        question=question_obj,
+                        question_type=question_obj.question_type,
+                        user=initiated_by_user,
+                        answer=response_text if response_text and response_text != 'nan' else '',
+                        submitted_by=initiated_by_user,
+                        submission=submission,
+                        organization=org,
+                        remarks=remarks if remarks else None,
+                    )
+                    created_answers += 1
+
+                    consumed_from = str(row.get('Consumed from / SAP Code or Product Name', '')).strip()
+                    if consumed_from == 'nan':
+                        consumed_from = ''
+                    quantity = str(row.get('Quantity', '')).strip()
+                    if quantity == 'nan':
+                        quantity = ''
+                    after_image = str(row.get('After Image', '')).strip()
+                    if after_image == 'nan':
+                        after_image = ''
+
+                    parent_sub_qs = sub_question_map.get(question_obj.id, {})
+
+                    parent_logic_qs = {}
+                    q_logic_map = logic_question_map.get(question_obj.id, {})
+                    if q_logic_map:
+                        response_lower = response_text.strip().lower() if response_text and response_text != 'nan' else ''
+                        if response_lower:
+                            if response_lower in q_logic_map:
+                                parent_logic_qs = q_logic_map[response_lower]
+                            else:
+                                for lv, lq_dict in q_logic_map.items():
+                                    if response_lower in lv or lv in response_lower:
+                                        parent_logic_qs = lq_dict
+                                        break
+
+                    all_child_qs = {**parent_sub_qs, **parent_logic_qs}
+
+                    for child_q_text_lower, child_q_obj in all_child_qs.items():
+                        child_answer_val = ''
+                        if ('consumed' in child_q_text_lower or 'sap code' in child_q_text_lower or 'product name' in child_q_text_lower) and consumed_from:
+                            child_answer_val = consumed_from
+                        elif 'quantity' in child_q_text_lower and quantity:
+                            child_answer_val = quantity
+                        elif ('after image' in child_q_text_lower or 'after_image' in child_q_text_lower) and after_image:
+                            child_answer_val = after_image
+                        elif 'image' in child_q_text_lower and after_image and not consumed_from and not quantity:
+                            child_answer_val = after_image
+                        elif 'remark' in child_q_text_lower and remarks:
+                            child_answer_val = remarks
+
+                        if child_answer_val:
+                            Answer.objects.create(
+                                Form=form,
+                                stage=child_q_obj.stage if child_q_obj.stage else (stage_obj if isinstance(stage_obj, Stage) else None),
+                                question=child_q_obj,
+                                question_type=child_q_obj.question_type,
+                                user=initiated_by_user,
+                                answer=child_answer_val,
+                                submitted_by=initiated_by_user,
+                                submission=submission,
+                                organization=org,
+                            )
+                            created_answers += 1
+
+                    followup_title = str(row.get('Follow up action Title', '')).strip()
+                    if followup_title and followup_title != 'nan':
+                        if question_obj.id not in followup_configured_question_ids:
+                            followup_title = ''
+                        else:
+                            task_key = (submission.id, question_obj.id)
+                            if task_key in created_task_keys:
+                                followup_title = ''
+                            else:
+                                created_task_keys.add(task_key)
+
+                    if followup_title and followup_title != 'nan':
+                        deadline_str = str(row.get('Followup Deadline', '')).strip()
+                        deadline_dt = None
+                        if deadline_str and deadline_str != 'nan':
+                            for fmt in ['%d-%b-%Y %I:%M %p', '%Y-%m-%d %H:%M:%S', '%d-%m-%Y %H:%M']:
+                                try:
+                                    deadline_dt = datetime.strptime(deadline_str, fmt)
+                                    break
+                                except ValueError:
+                                    continue
+                            if not deadline_dt:
+                                try:
+                                    deadline_dt = pd.to_datetime(deadline_str).to_pydatetime()
+                                except Exception:
+                                    pass
+
+                        if not deadline_dt:
+                            deadline_dt = submission_date
+
+                        task_status_str = str(row.get('Followup Task Status', '')).strip()
+                        task_status = 'not_started'
+                        if task_status_str and task_status_str != 'nan':
+                            task_status = status_reverse_map.get(task_status_str.lower(), 'not_started')
+
+                        task = Task.objects.create(
+                            task_name=followup_title,
+                            description='',
+                            form=None,
+                            followup_task_form_id=form,
+                            follow_task_sub_question=question_obj,
+                            form_submission=submission,
+                            organization=org,
+                            status=task_status,
+                            start_date=submission_date,
+                            end_date=deadline_dt,
+                            created_by=user,
+                            is_bulk_imported=True,
+                        )
+                        created_tasks += 1
+
+                        TaskAuditLog.objects.create(
+                            task=task,
+                            task_action='Followup_Created',
+                            action_by=user,
+                            action_to=None
+                        )
+
+                        close_questions_for_task = []
+                        q_close_map = logic_followup_close_map.get(question_obj.id, {})
+                        if q_close_map:
+                            title_lower = followup_title.lower()
+                            close_qs = q_close_map.get(title_lower, [])
+                            if not close_qs:
+                                for map_title, map_qs in q_close_map.items():
+                                    if title_lower in map_title or map_title in title_lower:
+                                        close_qs = map_qs
+                                        break
+                            close_questions_for_task = close_qs
+
+                        follow_q_data = []
+                        for col_idx in range(1, 20):
+                            q_col = f'Follow Q{col_idx} Question'
+                            a_col = f'Follow Q{col_idx} Answer'
+                            if q_col not in df.columns:
+                                break
+                            fq_val = str(row.get(q_col, '')).strip()
+                            fa_val = str(row.get(a_col, '')).strip()
+                            if (fq_val and fq_val != 'nan') or (fa_val and fa_val != 'nan'):
+                                follow_q_data.append((fq_val if fq_val != 'nan' else '', fa_val if fa_val != 'nan' else ''))
+
+                        for idx, (fq_text, fa_text) in enumerate(follow_q_data):
+                            matched_close_q = None
+                            for cq in close_questions_for_task:
+                                if cq.question.strip().lower() == fq_text.strip().lower():
+                                    matched_close_q = cq
+                                    break
+                            if not matched_close_q:
+                                for cq in close_questions_for_task:
+                                    if fq_text.strip().lower() in cq.question.strip().lower() or cq.question.strip().lower() in fq_text.strip().lower():
+                                        matched_close_q = cq
+                                        break
+
+                            if matched_close_q:
+                                TaskCloseQuestion.objects.get_or_create(
+                                    task=task,
+                                    question=matched_close_q,
+                                    defaults={
+                                        'created_by': user,
+                                        'organization': org,
+                                    }
+                                )
+                                if fa_text:
+                                    Answer.objects.create(
+                                        Form=form,
+                                        stage=None,
+                                        question=matched_close_q,
+                                        question_type=matched_close_q.question_type,
+                                        user=initiated_by_user,
+                                        answer=fa_text,
+                                        submitted_by=initiated_by_user,
+                                        submission=submission,
+                                        organization=org,
+                                    )
+                                    created_answers += 1
+                            else:
+                                fq_key = fq_text.strip().lower()
+                                close_q_obj = question_text_map.get(fq_key)
+                                if close_q_obj and close_q_obj.is_task_close_question:
+                                    TaskCloseQuestion.objects.get_or_create(
+                                        task=task,
+                                        question=close_q_obj,
+                                        defaults={
+                                            'created_by': user,
+                                            'organization': org,
+                                        }
+                                    )
+                                    if fa_text:
+                                        Answer.objects.create(
+                                            Form=form,
+                                            stage=None,
+                                            question=close_q_obj,
+                                            question_type=close_q_obj.question_type,
+                                            user=initiated_by_user,
+                                            answer=fa_text,
+                                            submitted_by=initiated_by_user,
+                                            submission=submission,
+                                            organization=org,
+                                        )
+                                        created_answers += 1
+
+                        lf_config = logic_followup_config_map.get(question_obj.id)
+                        if lf_config:
+                            assign_to = (lf_config.assign_to or '').lower()
+
+                            if assign_to == 'form_submitter' and initiated_by_user:
+                                TaskAssignee.objects.create(
+                                    task=task,
+                                    assigned_user=initiated_by_user,
+                                    assigned_date_time=timezone.now()
+                                )
+
+                            for uid in (lf_config.assign_user_ids or []):
+                                try:
+                                    assignee_user = CustomUser.objects.get(id=uid, organization=org)
+                                    TaskAssignee.objects.create(
+                                        task=task,
+                                        assigned_user=assignee_user,
+                                        assigned_date_time=timezone.now()
+                                    )
+                                except CustomUser.DoesNotExist:
+                                    pass
+
+                            for gid in (lf_config.assign_group_ids or []):
+                                try:
+                                    group = Groups.objects.get(id=gid, organization=org)
+                                    TaskAssignee.objects.create(
+                                        task=task,
+                                        assigned_group=group,
+                                        assigned_date_time=timezone.now()
+                                    )
+                                except Groups.DoesNotExist:
+                                    pass
+
+                            for lid in (lf_config.assign_leader_ids or []):
+                                try:
+                                    leader = CustomUser.objects.get(id=lid, organization=org)
+                                    TaskAssignee.objects.create(
+                                        task=task,
+                                        assigned_leader=leader,
+                                        assigned_date_time=timezone.now()
+                                    )
+                                except CustomUser.DoesNotExist:
+                                    pass
+
+                            if assign_to == 'leader' and audited_location:
+                                try:
+                                    from user.models import Locations, LocationLeader
+                                    loc_obj = Locations.objects.filter(
+                                        name__iexact=audited_location,
+                                        organization=org
+                                    ).first()
+                                    if loc_obj:
+                                        leader_user = CustomUser.objects.filter(
+                                            location=loc_obj,
+                                            organization=org,
+                                            role__name='location_leader'
+                                        ).first()
+                                        if leader_user:
+                                            TaskAssignee.objects.create(
+                                                task=task,
+                                                assigned_leader=leader_user,
+                                                assigned_date_time=timezone.now()
+                                            )
+                                except Exception:
+                                    pass
+
+                            if task.status == 'not_assigned':
+                                task.status = 'not_started'
+                                task.save()
+                        else:
+                            if 'nc closure task' in followup_title.lower():
+                                for uid in assign_user_ids:
+                                    try:
+                                        assignee_user = CustomUser.objects.get(id=uid, organization=org)
+                                        TaskAssignee.objects.create(
+                                            task=task,
+                                            assigned_user=assignee_user,
+                                            assigned_date_time=timezone.now()
+                                        )
+                                    except CustomUser.DoesNotExist:
+                                        pass
+
+                                for gid in assign_group_ids:
+                                    try:
+                                        group = Groups.objects.get(id=gid, organization=org)
+                                        TaskAssignee.objects.create(
+                                            task=task,
+                                            assigned_group=group,
+                                            assigned_date_time=timezone.now()
+                                        )
+                                    except Groups.DoesNotExist:
+                                        pass
+
+                                if (assign_user_ids or assign_group_ids) and task_status == 'not_assigned':
+                                    task.status = 'not_started'
+                                    task.save()
+
+            return Response({
+                "message": "Import completed successfully.",
+                "created_submissions": created_submissions,
+                "created_answers": created_answers,
+                "created_tasks": created_tasks,
+                "errors": errors[:20],
+                "total_errors": len(errors),
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"BulkImportResponsesFollowupView error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class DownloadImportTemplateView(APIView):
+    """
+    Downloads an Excel template with the correct headers for bulk import
+    of responses with followup data. Includes a sample row and instructions sheet.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, form_id):
+        try:
+            form = Form.objects.filter(id=form_id, organization=request.user.organization).first()
+            if not form:
+                return Response({"error": "Form not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            base_headers = [
+                'Response ID',
+                'Submission Date',
+                'Initiated By',
+                'Designation',
+                'Department',
+                'Status',
+                'Form Title',
+                'Form Type',
+                'Overall Status',
+                'Total Score (%)',
+                'Task Completion (%)',
+                'Overdue Tasks (%)',
+                'Reopened Tasks (%)',
+                'Audited Location',
+                'Ambient Temperature',
+                'Total Production',
+                'Source Type',
+                'Source ID',
+                'Group Title',
+                'Item',
+                'Response',
+                'Image',
+                'Remarks',
+                'Consumed from / SAP Code or Product Name',
+                'Quantity',
+                'After Image',
+            ]
+
+            metadata_headers = [
+                'Followup Task ID',
+                'Followup Deadline',
+                'Followup Task Status',
+                'Followup Response Submission ID',
+            ]
+
+            followup_headers = ['Follow up action Title']
+            for i in range(3):
+                n = i + 1
+                followup_headers.append(f'Follow Q{n} Question')
+                followup_headers.append(f'Follow Q{n} Answer')
+
+            headers = base_headers + metadata_headers + followup_headers
+
+            sample_row = [
+                '', '2024-01-15 10:30:00', 'John Doe', 'Operator', 'Production',
+                'Completed', form.title, form.get_form_type_display() or 'Standard',
+                '', '', '', '', '',
+                'Plant A - Line 1', '28.5', '1500',
+                'Planner', '',
+                'Stage 1', 'Sample Question Text', 'OK', '', 'Sample remarks',
+                'SAP-001', '5', '',
+                '', '2024-01-22 10:30:00', 'Not Started', '',
+                'NC Closure Task', 'Was the issue resolved?', 'Yes', '', '', '', '',
+            ]
+
+            sample_row_2 = [
+                '', '2024-01-15 10:30:00', 'John Doe', 'Operator', 'Production',
+                'Completed', form.title, form.get_form_type_display() or 'Standard',
+                '', '', '', '', '',
+                '', '', '',
+                '', '',
+                'Stage 1', 'Another Question', 'Not OK', '', '',
+                '', '', '',
+                '', '', '', '',
+                '', '', '', '', '', '',
+            ]
+
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df = pd.DataFrame([sample_row, sample_row_2], columns=headers)
+                df.to_excel(writer, sheet_name='Import Data', index=False, engine_kwargs={'options': {'strings_to_urls': False}})
+
+                worksheet = writer.sheets['Import Data']
+                for col_idx in range(len(headers)):
+                    try:
+                        column_letter = worksheet.cell(row=1, column=col_idx + 1).column_letter
+                        worksheet.column_dimensions[column_letter].width = 25
+                    except Exception:
+                        continue
+
+                instructions = [
+                    ['Column', 'Description', 'Required?'],
+                    ['Response ID', 'Leave blank - auto-generated on import', 'No'],
+                    ['Submission Date', 'Date format: YYYY-MM-DD HH:MM:SS', 'Yes'],
+                    ['Initiated By', 'Full name of the user who submitted the form', 'Yes'],
+                    ['Designation', 'User designation (optional)', 'No'],
+                    ['Department', 'User department (optional)', 'No'],
+                    ['Status', 'Completed or Pending', 'No'],
+                    ['Form Title', 'Auto-filled from form', 'No'],
+                    ['Form Type', 'Auto-filled from form', 'No'],
+                    ['Overall Status', 'Audit form overall status (PASS/FAIL). Fill only on the first row of each response.', 'No'],
+                    ['Total Score (%)', 'Audit form total score percentage. Fill only on the first row of each response.', 'No'],
+                    ['Task Completion (%)', 'Auto-calculated - leave blank', 'No'],
+                    ['Overdue Tasks (%)', 'Auto-calculated - leave blank', 'No'],
+                    ['Reopened Tasks (%)', 'Auto-calculated - leave blank', 'No'],
+                    ['Audited Location', 'Location audited (for Audit forms). Fill only on the first row of each response', 'No'],
+                    ['Ambient Temperature', 'Ambient temperature reading (for Audit forms). Fill only on first row', 'No'],
+                    ['Total Production', 'Total production value (for Audit forms). Fill only on first row', 'No'],
+                    ['Source Type', 'Form or Planner. If Planner, provide Source ID as planner order_id. Fill only on first row.', 'No'],
+                    ['Source ID', 'Planner order_id if Source Type is Planner, blank if Form. Fill only on first row.', 'No'],
+                    ['Group Title', 'Stage name or Audit Group name (must match form)', 'Yes'],
+                    ['Item', 'Question text (must match form questions exactly)', 'Yes'],
+                    ['Response', 'Answer text for the question', 'Yes'],
+                    ['Image', 'Image URLs for the question answer (optional)', 'No'],
+                    ['Remarks', 'Additional remarks for the question (optional)', 'No'],
+                    ['Consumed from / SAP Code or Product Name', 'Value for the sub-question/logic question with Consumed/SAP Code/Product Name in its text. Fill on the same row as the main question.', 'No'],
+                    ['Quantity', 'Value for the sub-question/logic question with Quantity in its text. Fill on the same row as the main question.', 'No'],
+                    ['After Image', 'Image URL for the sub-question/logic question with After Image in its text. Fill on the same row as the main question.', 'No'],
+                    ['Followup Task ID', 'Leave blank - auto-generated', 'No'],
+                    ['Followup Deadline', 'Deadline for the followup task. Only fill on the row of the question that triggers the followup.', 'No'],
+                    ['Followup Task Status', 'Not Started / In Progress / Completed / Cancelled. Only fill on the row of the question that triggers the followup.', 'No'],
+                    ['Followup Response Submission ID', 'Leave blank - auto-generated', 'No'],
+                    ['Follow up action Title', 'Title of the followup task. ONLY fill on the row of the question that triggers the followup. Leave BLANK for all other questions. Use "NC Closure Task" for auto-assignment.', 'No'],
+                    ['Follow Q1-N Question', 'Close question text for the followup task. Fill on the same row as the Follow up action Title.', 'No'],
+                    ['Follow Q1-N Answer', 'Close question answer. Fill on the same row as the Follow up action Title.', 'No'],
+                ]
+                df_instr = pd.DataFrame(instructions[1:], columns=instructions[0])
+                df_instr.to_excel(writer, sheet_name='Instructions', index=False, engine_kwargs={'options': {'strings_to_urls': False}})
+
+                ws_instr = writer.sheets['Instructions']
+                ws_instr.column_dimensions['A'].width = 35
+                ws_instr.column_dimensions['B'].width = 60
+                ws_instr.column_dimensions['C'].width = 12
+
+            output.seek(0)
+            timestamp = datetime.now().strftime("%d_%m_%y")
+            filename = f"import_template_{form.prefix or 'form'}_{timestamp}.xlsx"
+            response = HttpResponse(
+                output.read(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+
+        except Exception as e:
+            logger.error(f"DownloadImportTemplateView error: {str(e)}")
+            return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

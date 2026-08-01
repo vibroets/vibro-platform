@@ -16,6 +16,7 @@ from .views import (
     LatestFormSubmissionView,FormAnswerEditView,GetFormResponseView,    FormResponsePDFDownloadView,FormResponseCSVView, OrganizationFormsView, OrganizationFormsViewOptimized,
     FormPayloadFilesViewSet, FormCountsView, AuditFormScoreDataView, TriggerFollowupTasksView, TaskCloseQuestionsView, TaskCloseQuestionsAnswersView, ExcelReportStatusView, PDFReportStatusView,
     ReportDownloadRedirectView, FormResponseCSVFollowupView, FormResponseFollowupTableView,
+    BulkImportResponsesFollowupView, DownloadImportTemplateView,
     PreviousSubmissionsView,
     FormStageMetadataView,
     FormFastView,
@@ -94,5 +95,7 @@ urlpatterns = [
     path('form/<int:form_id>/stage-metadata/', FormStageMetadataView.as_view(), name='form-stage-metadata'),
     path('form/<int:form_id>/fast/', FormFastView.as_view(), name='form-fast'),
     path('form/batch-metadata/', FormBatchMetadataView.as_view(), name='form-batch-metadata'),
+    path("forms/<int:form_id>/import-responses-followup", BulkImportResponsesFollowupView.as_view(), name='bulk-import-responses-followup'),
+    path("forms/<int:form_id>/import-template", DownloadImportTemplateView.as_view(), name='download-import-template'),
     path('', include(router.urls)),
 ]
