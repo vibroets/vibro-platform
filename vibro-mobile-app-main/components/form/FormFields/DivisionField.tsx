@@ -2,7 +2,7 @@ import api from "@/services";
 import { DIVISION } from "@/services/constants";
 import { matchLogicCondition } from "@/services/matchLogicCondition";
 import { MaterialIcons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { Controller } from "react-hook-form";
 import {
@@ -101,13 +101,11 @@ const DivisionField: React.FC<DivisionFieldProps> = ({
     }
   };
 
-  useEffect(() => {
-    fetchOptions();
-  }, []);
+  const hasFetchedRef = useRef<string | null>(null);
 
-  // Additional useEffect to ensure options are loaded when component mounts
   useEffect(() => {
-    if (question?.question_uuid && options.length === 0 && !loading) {
+    if (question?.question_uuid && hasFetchedRef.current !== question?.question_uuid) {
+      hasFetchedRef.current = question?.question_uuid;
       fetchOptions();
     }
   }, [question?.question_uuid]);

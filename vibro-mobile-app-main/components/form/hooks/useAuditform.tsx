@@ -864,6 +864,7 @@ export const useAuditForm = (
     const candidates = [
       (user as any)?.organizationId,
       (user as any)?.organization_id,
+      (typeof (user as any)?.organization === "number" ? (user as any).organization : null),
       (user as any)?.organization?.id,
       (formData as any)?.organization,
       (formData as any)?.organization_id,

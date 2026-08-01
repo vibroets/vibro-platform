@@ -117,6 +117,7 @@ export const useMultiStageForm = (
     const candidates = [
       (user as any)?.organizationId,
       (user as any)?.organization_id,
+      (typeof (user as any)?.organization === "number" ? (user as any).organization : null),
       (user as any)?.organization?.id,
       (submissionsDetail as any)?.organization,
       (submissionsDetail as any)?.organization_id,
