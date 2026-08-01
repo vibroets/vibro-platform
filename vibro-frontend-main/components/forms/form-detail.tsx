@@ -1835,7 +1835,7 @@ export function FormDetail({ id, onFolderId, status, plannerLocation, plannerOrd
             <Download className="mr-2 h-4 w-4" />
             Download Template
           </Button>
-          {isSuperAdmin && (
+          {canEdit && (
             <Button variant="outline" onClick={() => { fetchImportUsersGroups(); setImportDialogOpen(true) }} disabled={isFailed}>
               <Upload className="mr-2 h-4 w-4" />
               Import Responses
