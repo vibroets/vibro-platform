@@ -15,8 +15,16 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api from "../services";
 
-const getVideoProgressKey = (scheduleId: any, contentId: any, contentType: string) => `video_progress_sched_${scheduleId != null ? scheduleId : 'direct'}_${contentType}_${contentId}`;
-const getQuizProgressKey = (scheduleId: any, contentId: any, contentType: string) => `quiz_progress_sched_${scheduleId != null ? scheduleId : 'direct'}_${contentType}_${contentId}`;
+const getVideoProgressKey = (scheduleId: any, contentId: any, contentType: string, parentContentId?: any, parentContentType?: string) => {
+  const schedPart = scheduleId != null ? `sched_${scheduleId}` : 'direct';
+  const parentPart = parentContentId != null ? `_parent_${parentContentType}_${parentContentId}` : '';
+  return `video_progress_${schedPart}_${contentType}_${contentId}${parentPart}`;
+};
+const getQuizProgressKey = (scheduleId: any, contentId: any, contentType: string, parentContentId?: any, parentContentType?: string) => {
+  const schedPart = scheduleId != null ? `sched_${scheduleId}` : 'direct';
+  const parentPart = parentContentId != null ? `_parent_${parentContentType}_${parentContentId}` : '';
+  return `quiz_progress_${schedPart}_${contentType}_${contentId}${parentPart}`;
+};
 
 const QUESTION_TYPES = {
   MULTIPLE_CHOICE: "mcq",
@@ -134,7 +142,7 @@ export default function QuizScreen({ item, scheduleId, onBack, onQuizComplete }:
 
   useEffect(() => {
     if (item.id && item.type) {
-      AsyncStorage.getItem(getVideoProgressKey(scheduleId, item.id, item.type)).then((val: string | null) => {
+      AsyncStorage.getItem(getVideoProgressKey(scheduleId, item.id, item.type, item.parentContentId, item.parentContentType)).then((val: string | null) => {
         if (val) {
           const p = parseFloat(val);
           if (p > 0 && p < 95) setResumePosition(p);
@@ -170,7 +178,7 @@ export default function QuizScreen({ item, scheduleId, onBack, onQuizComplete }:
 
     // Restore saved quiz progress
     if (item.id && item.type) {
-      AsyncStorage.getItem(getQuizProgressKey(scheduleId, item.id, item.type)).then((val: string | null) => {
+      AsyncStorage.getItem(getQuizProgressKey(scheduleId, item.id, item.type, item.parentContentId, item.parentContentType)).then((val: string | null) => {
         if (val) {
           try {
             const saved = JSON.parse(val);
@@ -215,7 +223,7 @@ export default function QuizScreen({ item, scheduleId, onBack, onQuizComplete }:
   useEffect(() => {
     if (!quizRestored.current || quizCompleted) return;
     if (item.id && item.type && shuffledQuestions.length > 0) {
-      AsyncStorage.setItem(getQuizProgressKey(scheduleId, item.id, item.type), JSON.stringify({
+      AsyncStorage.setItem(getQuizProgressKey(scheduleId, item.id, item.type, item.parentContentId, item.parentContentType), JSON.stringify({
         savedQuestions: shuffledQuestions,
         answers,
         currentIndex: currentQuestionIndex,
@@ -268,7 +276,7 @@ export default function QuizScreen({ item, scheduleId, onBack, onQuizComplete }:
   const doSubmit = async () => {
     setQuizCompleted(true);
     if (item.id && item.type) {
-      AsyncStorage.removeItem(getQuizProgressKey(scheduleId, item.id, item.type));
+      AsyncStorage.removeItem(getQuizProgressKey(scheduleId, item.id, item.type, item.parentContentId, item.parentContentType));
     }
     const score = calculateScore(shuffledQuestions, answers);
     const correctAnswers = Math.round((score / 100) * shuffledQuestions.length);
@@ -321,12 +329,12 @@ export default function QuizScreen({ item, scheduleId, onBack, onQuizComplete }:
         if (progressSaveTimer.current) clearTimeout(progressSaveTimer.current);
         progressSaveTimer.current = setTimeout(() => {
           if (item.id && item.type && parsed.progress < 95) {
-            AsyncStorage.setItem(getVideoProgressKey(scheduleId, item.id, item.type), String(parsed.progress));
+            AsyncStorage.setItem(getVideoProgressKey(scheduleId, item.id, item.type, item.parentContentId, item.parentContentType), String(parsed.progress));
           }
         }, 500);
         if (parsed.progress >= 95 && !quizUnlocked) {
           setQuizUnlocked(true);
-          if (item.id && item.type) AsyncStorage.removeItem(getVideoProgressKey(scheduleId, item.id, item.type));
+          if (item.id && item.type) AsyncStorage.removeItem(getVideoProgressKey(scheduleId, item.id, item.type, item.parentContentId, item.parentContentType));
           if (item.type === "video" || item.type === "training") {
             api.post("/learning/courses/submit-quiz-result/", {
               content_type: item.type,
@@ -348,12 +356,12 @@ export default function QuizScreen({ item, scheduleId, onBack, onQuizComplete }:
         lockedMsgTimer.current = setTimeout(() => setShowLockedMsg(false), 2000);
       } else if (parsed.type === "unlocked") {
         setQuizUnlocked(true);
-        if (item.id && item.type) AsyncStorage.removeItem(getVideoProgressKey(scheduleId, item.id, item.type));
+        if (item.id && item.type) AsyncStorage.removeItem(getVideoProgressKey(scheduleId, item.id, item.type, item.parentContentId, item.parentContentType));
       } else if (parsed.type === "ended") {
         setVideoCompleted(true);
         setQuizUnlocked(true);
         setQuizStarted(true);
-        if (item.id && item.type) AsyncStorage.removeItem(getVideoProgressKey(scheduleId, item.id, item.type));
+        if (item.id && item.type) AsyncStorage.removeItem(getVideoProgressKey(scheduleId, item.id, item.type, item.parentContentId, item.parentContentType));
       }
     } catch (e) {}
   };
