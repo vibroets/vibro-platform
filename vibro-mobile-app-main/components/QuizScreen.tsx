@@ -290,6 +290,7 @@ export default function QuizScreen({ item, scheduleId, onBack, onQuizComplete }:
         content_type: item.type,
         content_id: item.id,
         content_title: item.title,
+        schedule_id: item._progressScheduleId || undefined,
         score,
         correct_answers: correctAnswers,
         total_questions: shuffledQuestions.length,

@@ -471,6 +471,7 @@ class QuizResult(models.Model):
     content_type = models.CharField(max_length=20, help_text="quiz, video, training")
     content_id = models.IntegerField()
     content_title = models.CharField(max_length=500, blank=True, null=True)
+    schedule_id = models.IntegerField(null=True, blank=True, help_text="TrainingSchedule id if this result was taken as part of a training schedule")
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="quiz_results")
     user_name = models.CharField(max_length=255, blank=True, null=True)
     score = models.FloatField(default=0)

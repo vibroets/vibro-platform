@@ -246,6 +246,11 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
             ).first()
             s['my_attendance'] = TrainingAttendanceSerializer(att).data if att else None
 
+            # Embed best quiz result taken as part of this schedule (for score/time display)
+            sched_results = QuizResult.objects.filter(user=user, schedule_id=s['id']).order_by('-score')
+            best = sched_results.first()
+            s['my_result'] = QuizResultSerializer(best).data if best else None
+
         # Separate completed schedules (user has checked out) from active ones
         active_schedules = [s for s in schedule_data if not (s.get('my_attendance') and s['my_attendance'].get('check_out_time'))]
         completed_schedules = [s for s in schedule_data if s.get('my_attendance') and s['my_attendance'].get('check_out_time')]
@@ -268,6 +273,7 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
         content_type = data.get('content_type', 'quiz')
         content_id = data.get('content_id')
         content_title = data.get('content_title', '')
+        schedule_id = data.get('schedule_id')
         score = data.get('score', 0)
         correct_answers = data.get('correct_answers', 0)
         total_questions = data.get('total_questions', 0)
@@ -296,6 +302,7 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
             content_type=content_type,
             content_id=content_id,
             content_title=content_title,
+            schedule_id=schedule_id,
             user=user,
             user_name=f"{user.first_name} {user.last_name}".strip() or user.username,
             score=score,
@@ -326,8 +333,9 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
     @action(detail=False, methods=['get'], url_path='my-results')
     def my_results(self, request):
         user = request.user
-        # Exclude video-only completions (total_questions=0) — those are silent records
-        results = QuizResult.objects.filter(user=user, total_questions__gt=0).order_by('-completed_at')
+        # Exclude video-only completions (total_questions=0) and schedule-linked results —
+        # schedule-linked results are shown separately as "Completed Training", not standalone results
+        results = QuizResult.objects.filter(user=user, total_questions__gt=0, schedule_id__isnull=True).order_by('-completed_at')
         return Response(QuizResultSerializer(results, many=True).data, status=status.HTTP_200_OK)
 
     # --- MY CERTIFICATES (for mobile app) ---

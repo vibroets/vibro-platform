@@ -760,6 +760,7 @@ export default function LearnScreen() {
         content_type: video.type,
         content_id: video.id,
         content_title: video.title || "",
+        schedule_id: video._progressScheduleId || undefined,
         score: 100,
         correct_answers: 0,
         total_questions: 0,
@@ -1398,22 +1399,8 @@ export default function LearnScreen() {
                 {completedSchedules.map((sched: any, index: number) => {
                   const att = sched.my_attendance;
                   const checkOut = att?.check_out_time ? new Date(att.check_out_time).toLocaleDateString() : "";
-                  // Find quiz results for this schedule's linked content (including follow-up targets)
-                  const linkedContent = sched.linked_content || [];
-                  const matchPairs: { id: string; type: string }[] = [];
-                  for (const c of linkedContent) {
-                    matchPairs.push({ id: String(c.id), type: c.type });
-                    if (c.follow_up_type && c.follow_up_id) {
-                      matchPairs.push({ id: String(c.follow_up_id), type: c.follow_up_type });
-                    }
-                  }
-                  const schedResults = myResults.filter((r: any) =>
-                    matchPairs.some((p) => p.id === String(r.content_id) && p.type === r.content_type) && r.total_questions > 0
-                  );
-                  const bestResult = schedResults.length > 0
-                    ? schedResults.reduce((best: any, r: any) => (r.score > (best?.score || 0) ? r : best), schedResults[0])
-                    : null;
-                  const scorePct = bestResult ? Math.round((bestResult.correct_answers / bestResult.total_questions) * 100) : null;
+                  const bestResult = sched.my_result || null;
+                  const scorePct = bestResult && bestResult.total_questions > 0 ? Math.round((bestResult.correct_answers / bestResult.total_questions) * 100) : null;
                   const timeMin = bestResult ? Math.floor((bestResult.time_taken || 0) / 60) : 0;
                   const timeSec = bestResult ? (bestResult.time_taken || 0) % 60 : 0;
                   return (
