@@ -198,17 +198,17 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
 
   useEffect(() => {
     if (course.id && course.type) {
-      getVideoProgress(scheduleId, course.id, course.type, course.parentContentId, course.parentContentType).then((p) => {
+      getVideoProgress(course._progressScheduleId, course.id, course.type, course.parentContentId, course.parentContentType).then((p) => {
         if (p > 0 && p < 95) setResumePosition(p);
       });
     }
     return () => {
       if (progressSaveTimer.current) clearTimeout(progressSaveTimer.current);
       if (course.id && course.type && latestProgressRef.current > 0 && latestProgressRef.current < 95) {
-        saveVideoProgress(scheduleId, course.id, course.type, latestProgressRef.current, course.parentContentId, course.parentContentType);
+        saveVideoProgress(course._progressScheduleId, course.id, course.type, latestProgressRef.current, course.parentContentId, course.parentContentType);
       }
     };
-  }, [course.id, course.type, scheduleId, course.parentContentId, course.parentContentType]);
+  }, [course.id, course.type, course._progressScheduleId, course.parentContentId, course.parentContentType]);
 
   const handleWebViewMessage = (event: any) => {
     const data = event.nativeEvent.data;
@@ -220,12 +220,12 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
         if (progressSaveTimer.current) clearTimeout(progressSaveTimer.current);
         progressSaveTimer.current = setTimeout(() => {
           if (course.id && course.type && parsed.progress < 95) {
-            saveVideoProgress(scheduleId, course.id, course.type, parsed.progress, course.parentContentId, course.parentContentType);
+            saveVideoProgress(course._progressScheduleId, course.id, course.type, parsed.progress, course.parentContentId, course.parentContentType);
           }
         }, 500);
         if (parsed.progress >= 95 && !videoEndedRef.current) {
           videoEndedRef.current = true;
-          if (course.id && course.type) clearVideoProgress(scheduleId, course.id, course.type, course.parentContentId, course.parentContentType);
+          if (course.id && course.type) clearVideoProgress(course._progressScheduleId, course.id, course.type, course.parentContentId, course.parentContentType);
           handleBack();
         }
       } else if (parsed.type === "locked") {
@@ -236,7 +236,7 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
         setVideoProgress(100);
         if (!videoEndedRef.current) {
           videoEndedRef.current = true;
-          if (course.id && course.type) clearVideoProgress(scheduleId, course.id, course.type, course.parentContentId, course.parentContentType);
+          if (course.id && course.type) clearVideoProgress(course._progressScheduleId, course.id, course.type, course.parentContentId, course.parentContentType);
           handleBack();
         }
       } else if (parsed.type === "error") {
@@ -273,7 +273,7 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
     const completed = videoEndedRef.current;
     if (progressSaveTimer.current) clearTimeout(progressSaveTimer.current);
     if (course.id && course.type && latestProgressRef.current > 0 && latestProgressRef.current < 95) {
-      saveVideoProgress(scheduleId, course.id, course.type, latestProgressRef.current, course.parentContentId, course.parentContentType);
+      saveVideoProgress(course._progressScheduleId, course.id, course.type, latestProgressRef.current, course.parentContentId, course.parentContentType);
     }
     Alert.alert(
       completed ? "Content Completed" : "Content Progress",
@@ -644,13 +644,14 @@ export default function LearnScreen() {
 
   const handleScheduleContentPress = (content: any) => {
     const hasQuestions = content.questions && Array.isArray(content.questions) && content.questions.length > 0;
+    const schedId = selectedSchedule?.id;
     if (isContentCompleted(content)) {
       if (hasQuestions && !isQuizFullyCompleted(content)) {
         // Video was watched to completion but quiz not yet taken — allow reopening
         if (content.type === "video" || content.type === "training") {
           const url = content.video_url || content.video_file_url || getMediaUrl(content.video_file);
           setQuizScheduleContext(selectedSchedule);
-          setSelectedQuiz({ ...content, video_url: url, video_already_completed: true });
+          setSelectedQuiz({ ...content, video_url: url, _progressScheduleId: schedId });
           return;
         }
       }
@@ -660,24 +661,24 @@ export default function LearnScreen() {
     if (content.type === "quiz") {
       if (hasQuestions) {
         setQuizScheduleContext(selectedSchedule);
-        setSelectedQuiz(content);
+        setSelectedQuiz({ ...content, _progressScheduleId: schedId });
       } else {
-        Alert.alert(content.title, content.description || "No questions available.", [{ text: "OK" }]);
+        Alert.alert(content.title, content.description || "No questions available for this quiz.", [{ text: "OK" }]);
       }
     } else if (content.type === "video") {
       const url = content.video_url || content.video_file_url || getMediaUrl(content.video_file);
       if (hasQuestions) {
         setQuizScheduleContext(selectedSchedule);
-        setSelectedQuiz({ ...content, video_url: url });
+        setSelectedQuiz({ ...content, video_url: url, _progressScheduleId: schedId });
       } else if (url) {
-        setSelectedVideo({ ...content, video_url: url, video_source: content.video_source || content.videoSource, videoSource: content.videoSource });
+        setSelectedVideo({ ...content, video_url: url, video_source: content.video_source || content.videoSource, videoSource: content.videoSource, _progressScheduleId: schedId });
       } else {
         Alert.alert(content.title, content.description || "No video content available.", [{ text: "OK" }]);
       }
     } else if (content.type === "training") {
       const url = content.content_url || content.file_url || getMediaUrl(content.file);
       if (url) {
-        setSelectedVideo({ ...content, video_url: url, content_url: url, file_url: url });
+        setSelectedVideo({ ...content, video_url: url, content_url: url, file_url: url, _progressScheduleId: schedId });
       } else {
         Alert.alert(content.title, content.description || "No training content available.", [{ text: "OK" }]);
       }
@@ -688,19 +689,20 @@ export default function LearnScreen() {
     if (!selectedVideo) return;
     const parentContentId = selectedVideo.id;
     const parentContentType = selectedVideo.type;
+    const schedId = selectedVideo._progressScheduleId ?? null;
     const followUp = findFollowUpContent(selectedVideo);
     if (followUp) {
       setSelectedVideo(null);
       const hasQuestions = followUp.questions && Array.isArray(followUp.questions) && followUp.questions.length > 0;
       if (hasQuestions) {
-        setSelectedQuiz({ ...followUp, parentContentId, parentContentType });
+        setSelectedQuiz({ ...followUp, parentContentId, parentContentType, _progressScheduleId: schedId });
       } else if (followUp.type === "video") {
         const url = followUp.video_url || followUp.video_file_url || getMediaUrl(followUp.video_file);
-        setSelectedVideo({ ...followUp, video_url: url, video_source: followUp.video_source || followUp.videoSource, videoSource: followUp.videoSource, parentContentId, parentContentType });
+        setSelectedVideo({ ...followUp, video_url: url, video_source: followUp.video_source || followUp.videoSource, videoSource: followUp.videoSource, parentContentId, parentContentType, _progressScheduleId: schedId });
       } else if (followUp.type === "training") {
         const url = followUp.content_url || followUp.file_url || getMediaUrl(followUp.file);
         if (url) {
-          setSelectedVideo({ ...followUp, video_url: url, content_url: url, file_url: url, parentContentId, parentContentType });
+          setSelectedVideo({ ...followUp, video_url: url, content_url: url, file_url: url, parentContentId, parentContentType, _progressScheduleId: schedId });
         } else {
           Alert.alert(followUp.title, followUp.description || "No training content available.", [{ text: "OK" }]);
         }
@@ -754,16 +756,16 @@ export default function LearnScreen() {
     const hasQuestions = item.questions && Array.isArray(item.questions) && item.questions.length > 0;
     if (item.type === "quiz") {
       if (hasQuestions) {
-        setSelectedQuiz(item);
+        setSelectedQuiz({ ...item, _progressScheduleId: null });
       } else {
         Alert.alert(item.title, item.description || "No questions available for this quiz.", [{ text: "OK" }]);
       }
     } else if (item.type === "video") {
       const url = item.video_url || item.video_file_url || getMediaUrl(item.video_file);
       if (hasQuestions) {
-        setSelectedQuiz({ ...item, video_url: url });
+        setSelectedQuiz({ ...item, video_url: url, _progressScheduleId: null });
       } else if (url) {
-        setSelectedVideo({ ...item, video_url: url, video_source: item.video_source || item.videoSource, videoSource: item.videoSource });
+        setSelectedVideo({ ...item, video_url: url, video_source: item.video_source || item.videoSource, videoSource: item.videoSource, _progressScheduleId: null });
       } else {
         Alert.alert(item.title, item.description || "No video content available.", [{ text: "OK" }]);
       }
@@ -772,7 +774,7 @@ export default function LearnScreen() {
     } else if (item.type === "training") {
       const url = item.content_url || item.file_url || getMediaUrl(item.file);
       if (url) {
-        setSelectedVideo({ ...item, video_url: url, content_url: url, file_url: url });
+        setSelectedVideo({ ...item, video_url: url, content_url: url, file_url: url, _progressScheduleId: null });
       } else {
         Alert.alert(item.title, item.description || "No training content available.", [{ text: "OK" }]);
       }
