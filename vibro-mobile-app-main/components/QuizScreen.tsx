@@ -298,6 +298,25 @@ export default function QuizScreen({ item, scheduleId, onBack, onQuizComplete }:
         questions: shuffledQuestions,
         pass_percentage: quizData.pass_percentage || 70,
       });
+      // Also submit result for parent content (e.g. TrainingItem) so schedule completion detects it
+      if (item.parentContentId && item.parentContentType) {
+        try {
+          await api.post("/learning/courses/submit-quiz-result/", {
+            content_type: item.parentContentType,
+            content_id: item.parentContentId,
+            content_title: item.parentContentTitle || item.title,
+            score,
+            correct_answers: correctAnswers,
+            total_questions: shuffledQuestions.length,
+            time_taken: timeTaken,
+            answers,
+            questions: shuffledQuestions,
+            pass_percentage: quizData.pass_percentage || 70,
+          });
+        } catch (e2: any) {
+          console.error("Failed to submit parent quiz result:", e2?.message);
+        }
+      }
     } catch (e: any) {
       console.error("Failed to submit quiz result:", e?.message);
     } finally {

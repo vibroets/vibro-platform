@@ -723,7 +723,7 @@ export default function LearnScreen() {
       setSelectedVideo(null);
       const hasQuestions = followUp.questions && Array.isArray(followUp.questions) && followUp.questions.length > 0;
       if (hasQuestions) {
-        setSelectedQuiz({ ...followUp, parentContentId, parentContentType, _progressScheduleId: schedId });
+        setSelectedQuiz({ ...followUp, parentContentId, parentContentType, parentContentTitle: selectedVideo.title, _progressScheduleId: schedId });
       } else if (followUp.type === "video") {
         const url = followUp.video_url || followUp.video_file_url || getMediaUrl(followUp.video_file);
         setSelectedVideo({ ...followUp, video_url: url, video_source: followUp.video_source || followUp.videoSource, videoSource: followUp.videoSource, parentContentId, parentContentType, _progressScheduleId: schedId });
