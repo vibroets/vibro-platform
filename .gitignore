@@ -25,3 +25,7 @@ deploy/nginx/certs/*.key
 __pycache__/
 .DS_Store
 *.log
+
+*.key
+*.key.pub
+check_db.py
