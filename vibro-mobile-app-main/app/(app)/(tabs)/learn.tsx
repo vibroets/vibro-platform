@@ -18,6 +18,9 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import QRCodeSVG from "react-native-qrcode-svg";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as WebBrowser from "expo-web-browser";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import api, { MEDIA_BASE_URL } from "../../../services";
 import QuizScreen from "../../../components/QuizScreen";
 
@@ -328,15 +331,30 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
   const openDocumentExternally = async () => {
     if (!finalUrl) return;
     try {
-      const supported = await Linking.canOpenURL(finalUrl);
-      if (supported) {
+      // For PDFs and documents, use expo-web-browser for HTTPS URLs
+      if (finalUrl.startsWith("https://") || finalUrl.startsWith("http://")) {
         setDocOpened(true);
-        await Linking.openURL(finalUrl);
+        const result = await WebBrowser.openBrowserAsync(finalUrl);
+        if (result.type === "dismiss") {
+          setDocReturned(true);
+        }
       } else {
-        Alert.alert("Cannot Open", "Your device cannot open this file type directly.", [{ text: "OK" }]);
+        const supported = await Linking.canOpenURL(finalUrl);
+        if (supported) {
+          setDocOpened(true);
+          await Linking.openURL(finalUrl);
+        } else {
+          Alert.alert("Cannot Open", "Your device cannot open this file type directly.", [{ text: "OK" }]);
+        }
       }
     } catch (e: any) {
-      Alert.alert("Error", `Could not open document: ${e?.message || "Unknown error"}`, [{ text: "OK" }]);
+      // Fallback: try Linking.openURL
+      try {
+        setDocOpened(true);
+        await Linking.openURL(finalUrl);
+      } catch (e2: any) {
+        Alert.alert("Error", `Could not open document: ${e?.message || e2?.message || "Unknown error"}`, [{ text: "OK" }]);
+      }
     }
   };
 
