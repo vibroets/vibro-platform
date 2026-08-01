@@ -246,11 +246,16 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
             ).first()
             s['my_attendance'] = TrainingAttendanceSerializer(att).data if att else None
 
+        # Separate completed schedules (user has checked out) from active ones
+        active_schedules = [s for s in schedule_data if not (s.get('my_attendance') and s['my_attendance'].get('check_out_time'))]
+        completed_schedules = [s for s in schedule_data if s.get('my_attendance') and s['my_attendance'].get('check_out_time')]
+
         return Response({
             'quizzes': assigned_quizzes,
             'videos': assigned_videos,
             'trainings': assigned_trainings,
-            'training_schedules': schedule_data,
+            'training_schedules': active_schedules,
+            'completed_schedules': completed_schedules,
             'user_group_ids': user_group_id_strs,
             'user_location_ids': user_location_id_strs,
         }, status=status.HTTP_200_OK)

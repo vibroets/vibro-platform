@@ -527,6 +527,7 @@ export default function LearnScreen() {
   const [scheduleCheckedIn, setScheduleCheckedIn] = useState(false);
   const [contentProgress, setContentProgress] = useState<Record<string, number>>({});
   const [quizScheduleContext, setQuizScheduleContext] = useState<any>(null);
+  const [completedSchedules, setCompletedSchedules] = useState<any[]>([]);
   const [myCertificates, setMyCertificates] = useState<any[]>([]);
   const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
 
@@ -546,6 +547,7 @@ export default function LearnScreen() {
       ];
       setAssignedContent(all);
       setMyResults(resultsRes.data || []);
+      setCompletedSchedules(data.completed_schedules || []);
       setMyCertificates(Array.isArray(certRes.data) ? certRes.data : []);
       return { results: resultsRes.data || [] };
     } catch (error: any) {
@@ -810,19 +812,28 @@ export default function LearnScreen() {
               setQuizScheduleContext(null);
               handleScheduleContentPress(nextContent);
             } else {
-              await api.post(`/learning/training-schedules/${quizScheduleContext.id}/complete-training/`);
+              // All content completed — go back to schedule detail so user can click Complete
               setQuizScheduleContext(null);
-              setSelectedSchedule(null);
+              // Refresh schedule data to reflect completion
+              if (selectedSchedule) {
+                const linked = selectedSchedule.linked_content || [];
+                const pm: Record<string, number> = {};
+                for (const c of linked) {
+                  const p = await getVideoProgress(selectedSchedule.id, c.id, c.type);
+                  if (p > 0 && p < 95) pm[`${c.type}_${c.id}`] = p;
+                }
+                setContentProgress(pm);
+              }
               setTimeout(() => {
                 Alert.alert(
-                  "Training Completed",
-                  `Quiz submitted with ${score}%. ${passed ? "Passed!" : "Did not pass."} Your training has been auto-completed and checked out.`,
-                  [{ text: "OK", onPress: () => { fetchAssignedContent(); } }]
+                  "Quiz Submitted",
+                  `Quiz submitted with ${score}%. ${passed ? "Passed!" : "Did not pass."} Click "Complete" to finish the training.`,
+                  [{ text: "OK" }]
                 );
-              }, 500);
+              }, 300);
             }
           } catch (e: any) {
-            console.error("Auto-complete schedule failed:", e?.message);
+            console.error("onQuizComplete failed:", e?.message);
           }
         } : undefined}
       />
@@ -1335,8 +1346,41 @@ export default function LearnScreen() {
             )}
           </View>
         ) : (
-          /* Dashboard Tab - Submitted Results */
+          /* Dashboard Tab - Completed Schedules + Submitted Results */
           <View>
+            {completedSchedules.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>Completed Training</Text>
+                {completedSchedules.map((sched: any, index: number) => {
+                  const att = sched.my_attendance;
+                  const checkOut = att?.check_out_time ? new Date(att.check_out_time).toLocaleDateString() : "";
+                  return (
+                    <View key={`completed-sched-${sched.id}-${index}`} style={styles.resultCard}>
+                      <View style={styles.resultCardHeader}>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={styles.resultTitle} numberOfLines={1}>{sched.title}</Text>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 }}>
+                            <View style={[styles.typeBadge, { backgroundColor: "#fef3c7" }]}>
+                              <Ionicons name="calendar-outline" size={12} color="#d97706" />
+                              <Text style={[styles.typeBadgeText, { color: "#d97706" }]}>Schedule</Text>
+                            </View>
+                            <View style={[styles.resultBadge, { backgroundColor: "#d1fae5" }]}>
+                              <Ionicons name="checkmark-circle" size={10} color="#059669" />
+                              <Text style={[styles.resultBadgeText, { color: "#059669" }]}>Completed</Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                      <View style={styles.resultCardFooter}>
+                        <Text style={styles.resultMeta}>Present</Text>
+                        <Text style={styles.resultMeta}>{checkOut}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </>
+            )}
+
             <Text style={styles.sectionTitle}>My Results</Text>
             {filteredResults.length === 0 ? (
               <View style={styles.emptyState}>
