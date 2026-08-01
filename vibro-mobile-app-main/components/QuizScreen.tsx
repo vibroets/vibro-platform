@@ -335,7 +335,8 @@ export default function QuizScreen({ item, scheduleId, onBack, onQuizComplete }:
         if (parsed.progress >= 95 && !quizUnlocked) {
           setQuizUnlocked(true);
           if (item.id && item.type) AsyncStorage.removeItem(getVideoProgressKey(item._progressScheduleId, item.id, item.type, item.parentContentId, item.parentContentType));
-          if (item.type === "video" || item.type === "training") {
+          const hasQuestions = item.questions && Array.isArray(item.questions) && item.questions.length > 0;
+          if ((item.type === "video" || item.type === "training") && !hasQuestions) {
             api.post("/learning/courses/submit-quiz-result/", {
               content_type: item.type,
               content_id: item.id,
