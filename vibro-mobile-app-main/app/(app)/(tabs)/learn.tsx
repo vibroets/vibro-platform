@@ -133,7 +133,7 @@ const buildRestrictedVideoHtml = (videoUrl: string, resumePosition: number = 0) 
     window.ReactNativeWebView.postMessage(JSON.stringify({type:'ended'}));
   });
   v.addEventListener('error',function(){
-    window.ReactNativeWebView.postMessage(JSON.stringify({type:'ended'}));
+    window.ReactNativeWebView.postMessage(JSON.stringify({type:'error',message:'Video failed to load'}));
   });
 })();
 </script>
@@ -232,6 +232,10 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
           if (course.id && course.type) clearVideoProgress(scheduleId, course.id, course.type);
           handleBack();
         }
+      } else if (parsed.type === "error") {
+        Alert.alert("Video Error", "Failed to load video. The video file may be inaccessible or the URL is invalid.\n\nURL: " + (finalUrl || 'N/A'), [
+          { text: "OK", onPress: onBack }
+        ]);
       }
     } catch (e) {}
   };
@@ -242,9 +246,11 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
     rawUrl.toLowerCase().endsWith(".ppt") ||
     rawUrl.toLowerCase().endsWith(".pptx")
   ));
-  const isUploadedFile = course.video_source === "upload" || course.videoSource === "upload" || course.video_source === "file" || course.videoSource === "file";
+  const isUploadedFile = course.video_source === "upload" || course.videoSource === "upload" || course.video_source === "file" || course.videoSource === "file" || course.source_type === "file" || course.sourceType === "file" || course.source_type === "upload" || course.sourceType === "upload";
+  const isVideoAsset = course.asset_type === "video" || course.type === "video";
   const isVideoFile = !isDocument && !isYouTube && (
     (isUploadedFile && rawUrl) ||
+    (isVideoAsset && rawUrl) ||
     (rawUrl && (
       rawUrl.toLowerCase().endsWith(".mp4") ||
       rawUrl.toLowerCase().endsWith(".webm") ||

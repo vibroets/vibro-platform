@@ -56,6 +56,5 @@ urlpatterns = [
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 ]
 
-# Serve media files during development
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Serve media files (needed in production since nginx proxies /media/ to backend)
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
