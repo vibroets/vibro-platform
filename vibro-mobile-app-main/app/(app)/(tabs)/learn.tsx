@@ -595,10 +595,17 @@ export default function LearnScreen() {
   const findFollowUpContent = (item: any) => {
     if (!item.follow_up_type || !item.follow_up_id) return null;
     const followUpId = String(item.follow_up_id);
+    const searchPool = [...assignedContent];
+    // Also search schedule linked content since follow-up may only be in the schedule
+    if (selectedSchedule?.linked_content) {
+      searchPool.push(...selectedSchedule.linked_content);
+    }
     if (item.follow_up_type === "quiz") {
-      return assignedContent.find((c) => c.type === "quiz" && String(c.id) === followUpId);
+      return searchPool.find((c) => c.type === "quiz" && String(c.id) === followUpId);
     } else if (item.follow_up_type === "video") {
-      return assignedContent.find((c) => c.type === "video" && String(c.id) === followUpId);
+      return searchPool.find((c) => c.type === "video" && String(c.id) === followUpId);
+    } else if (item.follow_up_type === "training") {
+      return searchPool.find((c) => c.type === "training" && String(c.id) === followUpId);
     }
     return null;
   };
@@ -687,12 +694,31 @@ export default function LearnScreen() {
     }
   };
 
-  const handleStartFollowUp = () => {
+  const handleStartFollowUp = async () => {
     if (!selectedVideo) return;
     const parentContentId = selectedVideo.id;
     const parentContentType = selectedVideo.type;
     const schedId = selectedVideo._progressScheduleId ?? null;
-    const followUp = findFollowUpContent(selectedVideo);
+    let followUp = findFollowUpContent(selectedVideo);
+    
+    // If not found locally, try fetching from API
+    if (!followUp && selectedVideo.follow_up_type && selectedVideo.follow_up_id) {
+      try {
+        const fuType = selectedVideo.follow_up_type;
+        const fuId = selectedVideo.follow_up_id;
+        let endpoint = "";
+        if (fuType === "video") endpoint = `/learning/videos/${fuId}/`;
+        else if (fuType === "quiz") endpoint = `/learning/quizzes/${fuId}/`;
+        else if (fuType === "training") endpoint = `/learning/training-items/${fuId}/`;
+        if (endpoint) {
+          const res = await api.get(endpoint);
+          followUp = { ...res.data, type: fuType };
+        }
+      } catch (e: any) {
+        console.error("Failed to fetch follow-up content:", e?.message);
+      }
+    }
+
     if (followUp) {
       setSelectedVideo(null);
       const hasQuestions = followUp.questions && Array.isArray(followUp.questions) && followUp.questions.length > 0;
