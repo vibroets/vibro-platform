@@ -350,7 +350,8 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
     # --- ADMIN: ALL QUIZ RESULTS ---
     @action(detail=False, methods=['get'], url_path='all-quiz-results')
     def all_quiz_results(self, request):
-        results = QuizResult.objects.all().order_by('-completed_at')
+        # Exclude schedule-linked results — those are shown in All Training Completions instead
+        results = QuizResult.objects.filter(schedule_id__isnull=True).order_by('-completed_at')
         data = QuizResultSerializer(results, many=True).data
         for r in data:
             user = CustomUser.objects.filter(id=r['user']).first()
@@ -448,6 +449,61 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
         # Only return certificates where the user actually passed
         certs = [c for c in certs if c.score >= (c.pass_percentage or 70)]
         return Response(CertificateSerializer(certs, many=True).data, status=status.HTTP_200_OK)
+
+    # --- ADMIN: ALL TRAINING COMPLETIONS (schedule-based) ---
+    @action(detail=False, methods=['get'], url_path='all-training-completions')
+    def all_training_completions(self, request):
+        """
+        Returns one row per user per completed training schedule (check_out_time set),
+        with the best schedule-linked quiz/video result embedded. This is distinct from
+        all-quiz-results, which only shows standalone (non-schedule) quiz/video attempts.
+        """
+        org = request.user.organization
+        completed_att = TrainingAttendance.objects.filter(
+            organization=org,
+            check_out_time__isnull=False,
+        ).order_by('-check_out_time')
+
+        # Preload schedule titles
+        schedule_ids = set()
+        for a in completed_att:
+            try:
+                schedule_ids.add(int(a.training_id))
+            except (ValueError, TypeError):
+                pass
+        schedules = {s.id: s for s in TrainingSchedule.objects.filter(id__in=schedule_ids, organization=org)}
+
+        data = []
+        for a in completed_att:
+            try:
+                sched_id = int(a.training_id)
+            except (ValueError, TypeError):
+                sched_id = None
+            sched = schedules.get(sched_id) if sched_id else None
+            best_result = QuizResult.objects.filter(
+                user=a.user, schedule_id=sched_id, organization=org
+            ).order_by('-score').first() if sched_id else None
+
+            dept = a.user.department if a.user else None
+            data.append({
+                'attendance_id': a.id,
+                'schedule_id': sched_id,
+                'training_title': sched.title if sched else a.training_title,
+                'user_id': a.user_id,
+                'user_name': a.user_name or (f"{a.user.first_name} {a.user.last_name}".strip() if a.user else ''),
+                'user_department': str(dept) if dept else None,
+                'check_in_time': a.check_in_time,
+                'check_out_time': a.check_out_time,
+                'status': a.status,
+                'score': best_result.score if best_result else None,
+                'correct_answers': best_result.correct_answers if best_result else None,
+                'total_questions': best_result.total_questions if best_result else None,
+                'time_taken': best_result.time_taken if best_result else None,
+                'pass_percentage': best_result.pass_percentage if best_result else None,
+                'result_status': best_result.status if best_result else None,
+            })
+
+        return Response(data, status=status.HTTP_200_OK)
 
     # --- ADMIN: SHARE CERTIFICATE ---
     @action(detail=False, methods=['post'], url_path='share-certificate')
