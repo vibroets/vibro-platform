@@ -350,8 +350,7 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
     # --- ADMIN: ALL QUIZ RESULTS ---
     @action(detail=False, methods=['get'], url_path='all-quiz-results')
     def all_quiz_results(self, request):
-        # Exclude schedule-linked results — those are shown in All Training Completions instead
-        results = QuizResult.objects.filter(schedule_id__isnull=True).order_by('-completed_at')
+        results = QuizResult.objects.all().order_by('-completed_at')
         data = QuizResultSerializer(results, many=True).data
         for r in data:
             user = CustomUser.objects.filter(id=r['user']).first()

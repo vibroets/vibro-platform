@@ -122,8 +122,12 @@ export default function AdminDashboardPage() {
     if (filters.quiz) filtered = filtered.filter(r => String(r.content_id) === filters.quiz);
     if (filters.department) filtered = filtered.filter(r => (r.user_department || "") === filters.department);
     if (filters.trainingType) {
-      const typeMap: any = { Quiz: "quiz", "Video training": "video", Training: "training" };
-      filtered = filtered.filter(r => r.content_type === typeMap[filters.trainingType]);
+      if (filters.trainingType === "Scheduled Training") {
+        filtered = filtered.filter(r => !!r.schedule_id);
+      } else {
+        const typeMap: any = { Quiz: "quiz", "Video training": "video", Training: "training" };
+        filtered = filtered.filter(r => !r.schedule_id && r.content_type === typeMap[filters.trainingType]);
+      }
     }
     if (filters.dateFrom) filtered = filtered.filter(r => new Date(r.completed_at) >= new Date(filters.dateFrom));
     if (filters.dateTo) filtered = filtered.filter(r => new Date(r.completed_at) <= new Date(filters.dateTo + "T23:59:59"));
@@ -382,6 +386,7 @@ export default function AdminDashboardPage() {
                 <option value="Quiz">Quiz</option>
                 <option value="Video training">Video training</option>
                 <option value="Training">Training</option>
+                <option value="Scheduled Training">Scheduled Training</option>
               </select>
             </div>
             <div>
@@ -446,8 +451,8 @@ export default function AdminDashboardPage() {
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">{result.user_department || "N/A"}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">{result.content_title || "N/A"}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-flex px-2.5 py-1 text-[11px] font-semibold rounded-full ${result.content_type === "video" ? "bg-blue-100 text-blue-800" : result.content_type === "training" ? "bg-indigo-100 text-indigo-800" : "bg-purple-100 text-purple-800"}`}>
-                          {result.content_type === "video" ? "Video training" : result.content_type === "training" ? "Training" : "Quiz"}
+                        <span className={`inline-flex px-2.5 py-1 text-[11px] font-semibold rounded-full ${result.schedule_id ? "bg-amber-100 text-amber-800" : result.content_type === "video" ? "bg-blue-100 text-blue-800" : result.content_type === "training" ? "bg-indigo-100 text-indigo-800" : "bg-purple-100 text-purple-800"}`}>
+                          {result.schedule_id ? "Scheduled Training" : result.content_type === "video" ? "Video training" : result.content_type === "training" ? "Training" : "Quiz"}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-700">{result.correct_answers}/{result.total_questions}</td>
