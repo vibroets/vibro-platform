@@ -1,7 +1,7 @@
 // components/form/DropdownField.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialIcons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Controller } from "react-hook-form";
 import {
   ActivityIndicator,
@@ -178,12 +178,21 @@ const DropdownField: React.FC<DropdownFieldProps> = ({
     }
   };
 
+  const hasFetchedRef = useRef<string | null>(null);
+
   useEffect(() => {
-    // Only fetch options when none are loaded yet
-    if (question?.question_type && options.length === 0 && !loading) {
+    if (question?.question_uuid && hasFetchedRef.current !== question?.question_uuid) {
+      hasFetchedRef.current = question?.question_uuid;
       fetchOptions();
     }
-  }, [question?.question_type, question?.question, question?.question_uuid, options.length, loading]);
+  }, [question?.question_type, question?.question_uuid]);
+
+  // Pick up question.options if they arrive later via background stage loading
+  useEffect(() => {
+    if (question.options && question.options.length > 0 && options.length === 0 && !loading) {
+      setOptions(question.options);
+    }
+  }, [question.options, options.length, loading]);
 
   // Auto-set and lock location when plannerLocationId or plannerLocationName is provided
   const isLocationLocked = question?.question_type === "location" && (!!plannerLocationId || !!plannerLocationName);
