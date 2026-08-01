@@ -13610,7 +13610,8 @@ class BulkImportResponsesFollowupView(APIView):
 class DownloadImportTemplateView(APIView):
     """
     Downloads an Excel template with the correct headers for bulk import
-    of responses with followup data. Includes a sample row and instructions sheet.
+    of responses with followup data. Headers are dynamically built to match
+    the 'Responses with Followup Data' table exactly.
     """
     permission_classes = [IsAuthenticated]
 
@@ -13620,6 +13621,7 @@ class DownloadImportTemplateView(APIView):
             if not form:
                 return Response({"error": "Form not found."}, status=status.HTTP_404_NOT_FOUND)
 
+            # ---- Build dynamic headers matching generate_csv_with_followup_data ----
             base_headers = [
                 'Response ID',
                 'Submission Date',
@@ -13639,6 +13641,12 @@ class DownloadImportTemplateView(APIView):
                 'Total Production',
                 'Source Type',
                 'Source ID',
+            ]
+
+            # Insert 'Imported' column after 'Source ID' (same as followup table)
+            base_headers.insert(base_headers.index('Source ID') + 1, 'Imported')
+
+            base_headers += [
                 'Group Title',
                 'Item',
                 'Response',
@@ -13653,44 +13661,190 @@ class DownloadImportTemplateView(APIView):
                 'Followup Task ID',
                 'Followup Deadline',
                 'Followup Task Status',
+                'Reopen Reason',
                 'Followup Response Submission ID',
             ]
 
+            # Determine max close questions from the form's LogicFollowUp configurations
+            max_close_questions = 0
+            try:
+                from form.models import LogicFollowUp
+                logic_followups = LogicFollowUp.objects.filter(
+                    models.Q(form_id=form_id) | models.Q(audit_group__form_id=form_id),
+                    followup_toggle=True,
+                ).distinct()
+                for lf in logic_followups:
+                    count = lf.task_close_questions.count()
+                    if count > max_close_questions:
+                        max_close_questions = count
+            except Exception:
+                pass
+
+            # Also check TaskCloseQuestion table for any existing tasks
+            try:
+                from task.models import Task as TaskModel
+                from form.models import TaskCloseQuestion
+                task_ids = TaskModel.objects.filter(
+                    followup_task_form_id=form_id,
+                    organization=request.user.organization
+                ).values_list('id', flat=True)
+                if task_ids:
+                    from django.db.models import Count
+                    max_tq = TaskCloseQuestion.objects.filter(
+                        task_id__in=task_ids
+                    ).values('task_id').annotate(c=Count('id')).order_by('-c').first()
+                    if max_tq and max_tq['c'] > max_close_questions:
+                        max_close_questions = max_tq['c']
+            except Exception:
+                pass
+
+            # Ensure at least 3 Follow Q columns for template usability
+            max_close_questions = max(max_close_questions, 3)
+
             followup_headers = ['Follow up action Title']
-            for i in range(3):
+            for i in range(max_close_questions):
                 n = i + 1
                 followup_headers.append(f'Follow Q{n} Question')
                 followup_headers.append(f'Follow Q{n} Answer')
 
             headers = base_headers + metadata_headers + followup_headers
 
-            sample_row = [
-                '', '2024-01-15 10:30:00', 'John Doe', 'Operator', 'Production',
-                'Completed', form.title, form.get_form_type_display() or 'Standard',
-                '', '', '', '', '',
-                'Plant A - Line 1', '28.5', '1500',
-                'Planner', '',
-                'Stage 1', 'Sample Question Text', 'OK', '', 'Sample remarks',
-                'SAP-001', '5', '',
-                '', '2024-01-22 10:30:00', 'Not Started', '',
-                'NC Closure Task', 'Was the issue resolved?', 'Yes', '', '', '', '',
-            ]
+            # ---- Build sample rows ----
+            # Find first stage/group name from the form for a realistic sample
+            sample_group = 'Stage 1'
+            sample_question = 'Sample Question Text'
+            try:
+                if form.form_type == FormType.AUDIT:
+                    first_group = form.audit_group.first()
+                    if first_group:
+                        sample_group = first_group.name or 'Audit Group 1'
+                        first_q = first_group.questions.first()
+                        if first_q:
+                            sample_question = first_q.question or sample_question
+                else:
+                    first_stage = form.stages.order_by('order').first()
+                    if first_stage:
+                        sample_group = first_stage.name or 'Stage 1'
+                        first_q = first_stage.questions.first()
+                        if first_q:
+                            sample_question = first_q.question or sample_question
+            except Exception:
+                pass
 
-            sample_row_2 = [
-                '', '2024-01-15 10:30:00', 'John Doe', 'Operator', 'Production',
-                'Completed', form.title, form.get_form_type_display() or 'Standard',
-                '', '', '', '', '',
-                '', '', '',
-                '', '',
-                'Stage 1', 'Another Question', 'Not OK', '', '',
-                '', '', '',
-                '', '', '', '',
-                '', '', '', '', '', '',
-            ]
+            # Sample row 1: a response with a followup (NC Closure Task)
+            sample_row_1 = [''] * len(headers)
+            idx = headers.index('Submission Date')
+            sample_row_1[idx] = '2024-01-15 10:30:00'
+            idx = headers.index('Initiated By')
+            sample_row_1[idx] = 'John Doe'
+            idx = headers.index('Designation')
+            sample_row_1[idx] = 'Operator'
+            idx = headers.index('Department')
+            sample_row_1[idx] = 'Production'
+            idx = headers.index('Status')
+            sample_row_1[idx] = 'Completed'
+            idx = headers.index('Form Title')
+            sample_row_1[idx] = form.title or 'Sample Form'
+            idx = headers.index('Form Type')
+            sample_row_1[idx] = form.get_form_type_display() or 'Standard'
+            idx = headers.index('Audited Location')
+            sample_row_1[idx] = 'Plant A - Line 1'
+            idx = headers.index('Ambient Temperature')
+            sample_row_1[idx] = '28.5'
+            idx = headers.index('Total Production')
+            sample_row_1[idx] = '1500'
+            idx = headers.index('Source Type')
+            sample_row_1[idx] = 'Form'
+            idx = headers.index('Group Title')
+            sample_row_1[idx] = sample_group
+            idx = headers.index('Item')
+            sample_row_1[idx] = sample_question
+            idx = headers.index('Response')
+            sample_row_1[idx] = 'Not OK'
+            idx = headers.index('Remarks')
+            sample_row_1[idx] = 'Sample remarks'
+            idx = headers.index('Followup Deadline')
+            sample_row_1[idx] = '2024-01-22 10:30:00'
+            idx = headers.index('Followup Task Status')
+            sample_row_1[idx] = 'Not Started'
+            idx = headers.index('Follow up action Title')
+            sample_row_1[idx] = 'NC Closure Task'
+            idx = headers.index('Follow Q1 Question')
+            sample_row_1[idx] = 'Was the issue resolved?'
+            idx = headers.index('Follow Q1 Answer')
+            sample_row_1[idx] = 'Yes'
 
+            # Sample row 2: another question in the same response (no followup)
+            sample_row_2 = [''] * len(headers)
+            idx = headers.index('Submission Date')
+            sample_row_2[idx] = '2024-01-15 10:30:00'
+            idx = headers.index('Initiated By')
+            sample_row_2[idx] = 'John Doe'
+            idx = headers.index('Status')
+            sample_row_2[idx] = 'Completed'
+            idx = headers.index('Form Title')
+            sample_row_2[idx] = form.title or 'Sample Form'
+            idx = headers.index('Form Type')
+            sample_row_2[idx] = form.get_form_type_display() or 'Standard'
+            idx = headers.index('Group Title')
+            sample_row_2[idx] = sample_group
+            idx = headers.index('Item')
+            sample_row_2[idx] = 'Another Question'
+            idx = headers.index('Response')
+            sample_row_2[idx] = 'OK'
+
+            # ---- Build instructions sheet ----
+            instructions = [
+                ['Column', 'Description', 'Required?'],
+            ]
+            col_descriptions = {
+                'Response ID': ('Leave blank - auto-generated on import', 'No'),
+                'Submission Date': ('Date format: YYYY-MM-DD HH:MM:SS', 'Yes'),
+                'Initiated By': ('Full name of the user who submitted the form', 'Yes'),
+                'Designation': ('User designation (optional)', 'No'),
+                'Department': ('User department (optional)', 'No'),
+                'Status': ('Completed or Pending', 'No'),
+                'Form Title': ('Auto-filled from form', 'No'),
+                'Form Type': ('Auto-filled from form', 'No'),
+                'Overall Status': ('Audit form overall status (PASS/FAIL). Fill only on the first row of each response.', 'No'),
+                'Total Score (%)': ('Audit form total score percentage. Fill only on the first row of each response.', 'No'),
+                'Task Completion (%)': ('Auto-calculated - leave blank', 'No'),
+                'Overdue Tasks (%)': ('Auto-calculated - leave blank', 'No'),
+                'Reopened Tasks (%)': ('Auto-calculated - leave blank', 'No'),
+                'Audited Location': ('Location audited (for Audit forms). Fill only on the first row of each response', 'No'),
+                'Ambient Temperature': ('Ambient temperature reading (for Audit forms). Fill only on first row', 'No'),
+                'Total Production': ('Total production value (for Audit forms). Fill only on first row', 'No'),
+                'Source Type': ('Form or Planner. If Planner, provide Source ID as planner order_id. Fill only on first row.', 'No'),
+                'Source ID': ('Planner order_id if Source Type is Planner, blank if Form. Fill only on first row.', 'No'),
+                'Imported': ('Auto-set to Yes on import - leave blank', 'No'),
+                'Group Title': ('Stage name or Audit Group name (must match form)', 'Yes'),
+                'Item': ('Question text (must match form questions exactly)', 'Yes'),
+                'Response': ('Answer text for the question', 'Yes'),
+                'Image': ('Image URLs for the question answer (optional)', 'No'),
+                'Remarks': ('Additional remarks for the question (optional)', 'No'),
+                'Consumed from / SAP Code or Product Name': ('Value for the sub-question/logic question with Consumed/SAP Code/Product Name in its text. Fill on the same row as the main question.', 'No'),
+                'Quantity': ('Value for the sub-question/logic question with Quantity in its text. Fill on the same row as the main question.', 'No'),
+                'After Image': ('Image URL for the sub-question/logic question with After Image in its text. Fill on the same row as the main question.', 'No'),
+                'Followup Task ID': ('Leave blank - auto-generated', 'No'),
+                'Followup Deadline': ('Deadline for the followup task. Only fill on the row of the question that triggers the followup.', 'No'),
+                'Followup Task Status': ('Not Started / In Progress / Completed / Cancelled. Only fill on the row of the question that triggers the followup.', 'No'),
+                'Reopen Reason': ('Reason for reopening the task (optional). Only fill on the row of the question that triggers the followup.', 'No'),
+                'Followup Response Submission ID': ('Leave blank - auto-generated', 'No'),
+                'Follow up action Title': ('Title of the followup task. ONLY fill on the row of the question that triggers the followup. Leave BLANK for all other questions. Use "NC Closure Task" for auto-assignment.', 'No'),
+            }
+            for h in headers:
+                if h in col_descriptions:
+                    desc, req = col_descriptions[h]
+                    instructions.append([h, desc, req])
+                elif h.startswith('Follow Q') and 'Question' in h:
+                    instructions.append([h, 'Close question text for the followup task. Fill on the same row as the Follow up action Title.', 'No'])
+                elif h.startswith('Follow Q') and 'Answer' in h:
+                    instructions.append([h, 'Close question answer. Fill on the same row as the Follow up action Title.', 'No'])
+
+            # ---- Write Excel ----
             output = BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df = pd.DataFrame([sample_row, sample_row_2], columns=headers)
+                df = pd.DataFrame([sample_row_1, sample_row_2], columns=headers)
                 df.to_excel(writer, sheet_name='Import Data', index=False, engine_kwargs={'options': {'strings_to_urls': False}})
 
                 worksheet = writer.sheets['Import Data']
@@ -13701,42 +13855,6 @@ class DownloadImportTemplateView(APIView):
                     except Exception:
                         continue
 
-                instructions = [
-                    ['Column', 'Description', 'Required?'],
-                    ['Response ID', 'Leave blank - auto-generated on import', 'No'],
-                    ['Submission Date', 'Date format: YYYY-MM-DD HH:MM:SS', 'Yes'],
-                    ['Initiated By', 'Full name of the user who submitted the form', 'Yes'],
-                    ['Designation', 'User designation (optional)', 'No'],
-                    ['Department', 'User department (optional)', 'No'],
-                    ['Status', 'Completed or Pending', 'No'],
-                    ['Form Title', 'Auto-filled from form', 'No'],
-                    ['Form Type', 'Auto-filled from form', 'No'],
-                    ['Overall Status', 'Audit form overall status (PASS/FAIL). Fill only on the first row of each response.', 'No'],
-                    ['Total Score (%)', 'Audit form total score percentage. Fill only on the first row of each response.', 'No'],
-                    ['Task Completion (%)', 'Auto-calculated - leave blank', 'No'],
-                    ['Overdue Tasks (%)', 'Auto-calculated - leave blank', 'No'],
-                    ['Reopened Tasks (%)', 'Auto-calculated - leave blank', 'No'],
-                    ['Audited Location', 'Location audited (for Audit forms). Fill only on the first row of each response', 'No'],
-                    ['Ambient Temperature', 'Ambient temperature reading (for Audit forms). Fill only on first row', 'No'],
-                    ['Total Production', 'Total production value (for Audit forms). Fill only on first row', 'No'],
-                    ['Source Type', 'Form or Planner. If Planner, provide Source ID as planner order_id. Fill only on first row.', 'No'],
-                    ['Source ID', 'Planner order_id if Source Type is Planner, blank if Form. Fill only on first row.', 'No'],
-                    ['Group Title', 'Stage name or Audit Group name (must match form)', 'Yes'],
-                    ['Item', 'Question text (must match form questions exactly)', 'Yes'],
-                    ['Response', 'Answer text for the question', 'Yes'],
-                    ['Image', 'Image URLs for the question answer (optional)', 'No'],
-                    ['Remarks', 'Additional remarks for the question (optional)', 'No'],
-                    ['Consumed from / SAP Code or Product Name', 'Value for the sub-question/logic question with Consumed/SAP Code/Product Name in its text. Fill on the same row as the main question.', 'No'],
-                    ['Quantity', 'Value for the sub-question/logic question with Quantity in its text. Fill on the same row as the main question.', 'No'],
-                    ['After Image', 'Image URL for the sub-question/logic question with After Image in its text. Fill on the same row as the main question.', 'No'],
-                    ['Followup Task ID', 'Leave blank - auto-generated', 'No'],
-                    ['Followup Deadline', 'Deadline for the followup task. Only fill on the row of the question that triggers the followup.', 'No'],
-                    ['Followup Task Status', 'Not Started / In Progress / Completed / Cancelled. Only fill on the row of the question that triggers the followup.', 'No'],
-                    ['Followup Response Submission ID', 'Leave blank - auto-generated', 'No'],
-                    ['Follow up action Title', 'Title of the followup task. ONLY fill on the row of the question that triggers the followup. Leave BLANK for all other questions. Use "NC Closure Task" for auto-assignment.', 'No'],
-                    ['Follow Q1-N Question', 'Close question text for the followup task. Fill on the same row as the Follow up action Title.', 'No'],
-                    ['Follow Q1-N Answer', 'Close question answer. Fill on the same row as the Follow up action Title.', 'No'],
-                ]
                 df_instr = pd.DataFrame(instructions[1:], columns=instructions[0])
                 df_instr.to_excel(writer, sheet_name='Instructions', index=False, engine_kwargs={'options': {'strings_to_urls': False}})
 

@@ -1831,10 +1831,6 @@ export function FormDetail({ id, onFolderId, status, plannerLocation, plannerOrd
         </div>
 
         <div className="flex flex-wrap gap-2 mr-4">
-          <Button variant="outline" onClick={downloadImportTemplate} disabled={isFailed}>
-            <Download className="mr-2 h-4 w-4" />
-            Download Template
-          </Button>
           {canEdit && (
             <Button variant="outline" onClick={() => { fetchImportUsersGroups(); setImportDialogOpen(true) }} disabled={isFailed}>
               <Upload className="mr-2 h-4 w-4" />
