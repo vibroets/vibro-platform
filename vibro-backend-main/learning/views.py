@@ -275,16 +275,17 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
         else:
             status_val = 'passed' if score >= pass_percentage else 'failed'
 
-        # Dedup: if a passed result already exists for this user+content, return it instead of creating a duplicate
-        existing = QuizResult.objects.filter(
-            user=user,
-            content_type=content_type,
-            content_id=content_id,
-            status='passed',
-            total_questions=total_questions,
-        ).order_by('-completed_at').first()
-        if existing:
-            return Response(QuizResultSerializer(existing).data, status=status.HTTP_200_OK)
+        # Dedup: only for video-only completions (no questions) to prevent auto-submit duplicates
+        if total_questions == 0:
+            existing = QuizResult.objects.filter(
+                user=user,
+                content_type=content_type,
+                content_id=content_id,
+                status='passed',
+                total_questions=0,
+            ).order_by('-completed_at').first()
+            if existing:
+                return Response(QuizResultSerializer(existing).data, status=status.HTTP_200_OK)
 
         result = QuizResult.objects.create(
             content_type=content_type,
