@@ -11746,6 +11746,8 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                 })
 
     # ---- FIRST PASS (B): collect all unique sub-question/logic question texts ----
+    # Skip texts that match base columns (Image, Remarks) - those are merged into base columns
+    base_col_texts = {'image', 'remarks'}
     dynamic_subq_headers = []
     dynamic_subq_seen = set()
 
@@ -11758,13 +11760,13 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                     for question in stage['questions']:
                         for sub_q in question.get('sub_questions', []):
                             sub_q_text = sub_q.get('question', '').strip()
-                            if sub_q_text and sub_q_text.lower() not in dynamic_subq_seen:
+                            if sub_q_text and sub_q_text.lower() not in dynamic_subq_seen and sub_q_text.lower() not in base_col_texts:
                                 dynamic_subq_seen.add(sub_q_text.lower())
                                 dynamic_subq_headers.append(sub_q_text)
                         for logic in question.get('logics', []):
                             for logic_q in logic.get('logic_questions', []):
                                 lq_text = logic_q.get('question', '').strip()
-                                if lq_text and lq_text.lower() not in dynamic_subq_seen:
+                                if lq_text and lq_text.lower() not in dynamic_subq_seen and lq_text.lower() not in base_col_texts:
                                     dynamic_subq_seen.add(lq_text.lower())
                                     dynamic_subq_headers.append(lq_text)
 
@@ -11933,7 +11935,14 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                             if not sub_q_text:
                                 continue
                             sub_q_lower = sub_q_text.lower()
-                            if 'image' in sub_q_lower or 'upload' in sub_q_lower:
+                            if sub_q_lower == 'image':
+                                urls = extract_image_urls(sub_answer_val) if sub_answer_val else ''
+                                if urls and not image_urls:
+                                    image_urls = urls
+                            elif sub_q_lower == 'remarks':
+                                if sub_answer_val:
+                                    logic_remarks = logic_remarks + ('; ' if logic_remarks else '') + str(sub_answer_val)
+                            elif 'image' in sub_q_lower or 'upload' in sub_q_lower:
                                 urls = extract_image_urls(sub_answer_val) if sub_answer_val else ''
                                 if urls and not image_urls:
                                     image_urls = urls
@@ -11956,7 +11965,14 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                                     continue
 
                                 lq_lower = lq_text.lower()
-                                if 'image' in lq_lower or 'upload' in lq_lower:
+                                if lq_lower == 'image':
+                                    urls = extract_image_urls(lq_answer_val) if lq_answer_val else ''
+                                    if urls and not image_urls:
+                                        image_urls = urls
+                                elif lq_lower == 'remarks':
+                                    if lq_answer_val:
+                                        logic_remarks = logic_remarks + ('; ' if logic_remarks else '') + str(lq_answer_val)
+                                elif 'image' in lq_lower or 'upload' in lq_lower:
                                     urls = extract_image_urls(lq_answer_val) if lq_answer_val else ''
                                     if urls and not image_urls:
                                         image_urls = urls
@@ -13683,6 +13699,8 @@ class DownloadImportTemplateView(APIView):
             ]
 
             # ---- Dynamically collect sub-question/logic question texts from form schema ----
+            # Skip texts that match base columns (Image, Remarks) - those are merged into base columns
+            base_col_texts = {'image', 'remarks'}
             dynamic_subq_headers = []
             dynamic_subq_seen = set()
 
@@ -13747,18 +13765,18 @@ class DownloadImportTemplateView(APIView):
                 optimized_instance = qs.get(pk=form.id)
                 formSchema = FormSerializer(optimized_instance, many=False).data
 
-                # Collect sub-question texts from all stages
+                # Collect sub-question texts from all stages (skip Image/Remarks - merged into base columns)
                 for stage in formSchema.get('stages', []):
                     for question in stage.get('questions', []):
                         for sub_q in question.get('sub_questions', []):
                             sub_q_text = (sub_q.get('question') or '').strip()
-                            if sub_q_text and sub_q_text.lower() not in dynamic_subq_seen:
+                            if sub_q_text and sub_q_text.lower() not in dynamic_subq_seen and sub_q_text.lower() not in base_col_texts:
                                 dynamic_subq_seen.add(sub_q_text.lower())
                                 dynamic_subq_headers.append(sub_q_text)
                         for logic in question.get('logics', []):
                             for logic_q in logic.get('logic_questions', []):
                                 lq_text = (logic_q.get('question') or '').strip()
-                                if lq_text and lq_text.lower() not in dynamic_subq_seen:
+                                if lq_text and lq_text.lower() not in dynamic_subq_seen and lq_text.lower() not in base_col_texts:
                                     dynamic_subq_seen.add(lq_text.lower())
                                     dynamic_subq_headers.append(lq_text)
 
@@ -13767,13 +13785,13 @@ class DownloadImportTemplateView(APIView):
                     for question in audit_group.get('questions', []):
                         for sub_q in question.get('sub_questions', []):
                             sub_q_text = (sub_q.get('question') or '').strip()
-                            if sub_q_text and sub_q_text.lower() not in dynamic_subq_seen:
+                            if sub_q_text and sub_q_text.lower() not in dynamic_subq_seen and sub_q_text.lower() not in base_col_texts:
                                 dynamic_subq_seen.add(sub_q_text.lower())
                                 dynamic_subq_headers.append(sub_q_text)
                         for logic in question.get('logics', []):
                             for logic_q in logic.get('logic_questions', []):
                                 lq_text = (logic_q.get('question') or '').strip()
-                                if lq_text and lq_text.lower() not in dynamic_subq_seen:
+                                if lq_text and lq_text.lower() not in dynamic_subq_seen and lq_text.lower() not in base_col_texts:
                                     dynamic_subq_seen.add(lq_text.lower())
                                     dynamic_subq_headers.append(lq_text)
             except Exception as e:
