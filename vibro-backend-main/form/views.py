@@ -11745,7 +11745,8 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                     'is_bulk_imported': fut.is_bulk_imported,
                 })
 
-    # ---- FIRST PASS (B): collect all unique sub-question/logic question texts ----
+    # ---- FIRST PASS (B): collect all unique logic question texts ----
+    # Only collect logic-triggered questions (conditional on answer), NOT regular sub-questions
     # Skip texts that match base columns (Image, Remarks) - those are merged into base columns
     base_col_texts = {'image', 'remarks'}
     dynamic_subq_headers = []
@@ -11758,11 +11759,6 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                     continue
                 if stage.get('questions'):
                     for question in stage['questions']:
-                        for sub_q in question.get('sub_questions', []):
-                            sub_q_text = sub_q.get('question', '').strip()
-                            if sub_q_text and sub_q_text.lower() not in dynamic_subq_seen and sub_q_text.lower() not in base_col_texts:
-                                dynamic_subq_seen.add(sub_q_text.lower())
-                                dynamic_subq_headers.append(sub_q_text)
                         for logic in question.get('logics', []):
                             for logic_q in logic.get('logic_questions', []):
                                 lq_text = logic_q.get('question', '').strip()
@@ -11921,13 +11917,13 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                         image_urls = extract_image_urls(answer_val) if answer_val else ''
                         text_answer = extract_text_answer(answer_val) if answer_val else ''
 
-                        # Build dynamic sub-question answers dict
+                        # Build dynamic logic question answers dict
                         subq_answers = {}
                         for h in dynamic_subq_headers:
                             subq_answers[h] = ''
                         logic_remarks = ''
 
-                        # Check sub-questions
+                        # Check sub-questions - only merge Image/Remarks into base columns
                         for sub_q in question.get('sub_questions', []):
                             sub_q_text = sub_q.get('question', '').strip()
                             sub_answer = sub_q.get('answers', {})
@@ -11942,17 +11938,6 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                             elif sub_q_lower == 'remarks':
                                 if sub_answer_val:
                                     logic_remarks = logic_remarks + ('; ' if logic_remarks else '') + str(sub_answer_val)
-                            elif 'image' in sub_q_lower or 'upload' in sub_q_lower:
-                                urls = extract_image_urls(sub_answer_val) if sub_answer_val else ''
-                                if urls and not image_urls:
-                                    image_urls = urls
-                                subq_answers[sub_q_text] = urls
-                            elif 'remark' in sub_q_lower:
-                                if sub_answer_val:
-                                    logic_remarks = logic_remarks + ('; ' if logic_remarks else '') + str(sub_answer_val)
-                                subq_answers[sub_q_text] = str(sub_answer_val) if sub_answer_val else ''
-                            else:
-                                subq_answers[sub_q_text] = str(sub_answer_val) if sub_answer_val else ''
 
                         # Check logic questions (conditional on answer option selected)
                         for logic in question.get('logics', []):
@@ -13765,14 +13750,10 @@ class DownloadImportTemplateView(APIView):
                 optimized_instance = qs.get(pk=form.id)
                 formSchema = FormSerializer(optimized_instance, many=False).data
 
-                # Collect sub-question texts from all stages (skip Image/Remarks - merged into base columns)
+                # Collect logic question texts from all stages (skip Image/Remarks - merged into base columns)
+                # Only logic-triggered questions, NOT regular sub-questions
                 for stage in formSchema.get('stages', []):
                     for question in stage.get('questions', []):
-                        for sub_q in question.get('sub_questions', []):
-                            sub_q_text = (sub_q.get('question') or '').strip()
-                            if sub_q_text and sub_q_text.lower() not in dynamic_subq_seen and sub_q_text.lower() not in base_col_texts:
-                                dynamic_subq_seen.add(sub_q_text.lower())
-                                dynamic_subq_headers.append(sub_q_text)
                         for logic in question.get('logics', []):
                             for logic_q in logic.get('logic_questions', []):
                                 lq_text = (logic_q.get('question') or '').strip()
@@ -13783,11 +13764,6 @@ class DownloadImportTemplateView(APIView):
                 # Also check audit groups
                 for audit_group in formSchema.get('audit_group', []):
                     for question in audit_group.get('questions', []):
-                        for sub_q in question.get('sub_questions', []):
-                            sub_q_text = (sub_q.get('question') or '').strip()
-                            if sub_q_text and sub_q_text.lower() not in dynamic_subq_seen and sub_q_text.lower() not in base_col_texts:
-                                dynamic_subq_seen.add(sub_q_text.lower())
-                                dynamic_subq_headers.append(sub_q_text)
                         for logic in question.get('logics', []):
                             for logic_q in logic.get('logic_questions', []):
                                 lq_text = (logic_q.get('question') or '').strip()
