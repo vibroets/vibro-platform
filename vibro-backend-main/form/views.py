@@ -11745,6 +11745,29 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                     'is_bulk_imported': fut.is_bulk_imported,
                 })
 
+    # ---- FIRST PASS (B): collect all unique sub-question/logic question texts ----
+    dynamic_subq_headers = []
+    dynamic_subq_seen = set()
+
+    for response in responses:
+        if response.get('stages'):
+            for stage in response['stages']:
+                if stage.get('is_audit_info') or stage.get('name') == 'Audit Info':
+                    continue
+                if stage.get('questions'):
+                    for question in stage['questions']:
+                        for sub_q in question.get('sub_questions', []):
+                            sub_q_text = sub_q.get('question', '').strip()
+                            if sub_q_text and sub_q_text.lower() not in dynamic_subq_seen:
+                                dynamic_subq_seen.add(sub_q_text.lower())
+                                dynamic_subq_headers.append(sub_q_text)
+                        for logic in question.get('logics', []):
+                            for logic_q in logic.get('logic_questions', []):
+                                lq_text = logic_q.get('question', '').strip()
+                                if lq_text and lq_text.lower() not in dynamic_subq_seen:
+                                    dynamic_subq_seen.add(lq_text.lower())
+                                    dynamic_subq_headers.append(lq_text)
+
     # ---- BUILD DYNAMIC HEADERS ----
     base_headers = [
         'Response ID',
@@ -11770,10 +11793,7 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
         'Response',
         'Image',
         'Remarks',
-        'Consumed from / SAP Code or Product Name',
-        'Quantity',
-        'After Image',
-    ]
+    ] + dynamic_subq_headers
 
     # Add Imported column after Source ID
     base_headers.insert(base_headers.index('Source ID') + 1, 'Imported')
@@ -11899,51 +11919,54 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                         image_urls = extract_image_urls(answer_val) if answer_val else ''
                         text_answer = extract_text_answer(answer_val) if answer_val else ''
 
-                        # Collect Image, Remarks, Consumed from, Quantity, After Image
-                        # from sub_questions AND logic questions (conditional fields)
-                        consumed_from = ''
-                        quantity = ''
-                        after_image = ''
+                        # Build dynamic sub-question answers dict
+                        subq_answers = {}
+                        for h in dynamic_subq_headers:
+                            subq_answers[h] = ''
                         logic_remarks = ''
 
                         # Check sub-questions
                         for sub_q in question.get('sub_questions', []):
-                            sub_q_text = sub_q.get('question', '').strip().lower()
+                            sub_q_text = sub_q.get('question', '').strip()
                             sub_answer = sub_q.get('answers', {})
                             sub_answer_val = sub_answer.get('answer', '') if sub_answer else ''
-                            if 'consumed' in sub_q_text or 'sap code' in sub_q_text or 'product name' in sub_q_text:
-                                consumed_from = str(sub_answer_val) if sub_answer_val else ''
-                            elif 'quantity' in sub_q_text:
-                                quantity = str(sub_answer_val) if sub_answer_val else ''
-                            elif 'after image' in sub_q_text or 'after_image' in sub_q_text:
-                                after_image = extract_image_urls(sub_answer_val)
-                            elif 'image' in sub_q_text and sub_answer_val:
-                                if not image_urls:
-                                    image_urls = extract_image_urls(sub_answer_val)
-                            elif 'remark' in sub_q_text and sub_answer_val:
-                                logic_remarks = logic_remarks + ('; ' if logic_remarks else '') + str(sub_answer_val)
+                            if not sub_q_text:
+                                continue
+                            sub_q_lower = sub_q_text.lower()
+                            if 'image' in sub_q_lower or 'upload' in sub_q_lower:
+                                urls = extract_image_urls(sub_answer_val) if sub_answer_val else ''
+                                if urls and not image_urls:
+                                    image_urls = urls
+                                subq_answers[sub_q_text] = urls
+                            elif 'remark' in sub_q_lower:
+                                if sub_answer_val:
+                                    logic_remarks = logic_remarks + ('; ' if logic_remarks else '') + str(sub_answer_val)
+                                subq_answers[sub_q_text] = str(sub_answer_val) if sub_answer_val else ''
+                            else:
+                                subq_answers[sub_q_text] = str(sub_answer_val) if sub_answer_val else ''
 
                         # Check logic questions (conditional on answer option selected)
                         for logic in question.get('logics', []):
                             for logic_q in logic.get('logic_questions', []):
-                                lq_text = logic_q.get('question', '').strip().lower()
+                                lq_text = logic_q.get('question', '').strip()
                                 lq_answer_obj = logic_q.get('answers', {})
                                 lq_answer_val = lq_answer_obj.get('answer', '') if lq_answer_obj else ''
 
-                                if not lq_answer_val:
+                                if not lq_text:
                                     continue
 
-                                if 'consumed' in lq_text or 'sap code' in lq_text or 'product name' in lq_text:
-                                    consumed_from = str(lq_answer_val)
-                                elif 'quantity' in lq_text:
-                                    quantity = str(lq_answer_val)
-                                elif 'after image' in lq_text or 'after_image' in lq_text:
-                                    after_image = extract_image_urls(lq_answer_val)
-                                elif 'image' in lq_text or 'upload' in lq_text:
-                                    if not image_urls:
-                                        image_urls = extract_image_urls(lq_answer_val)
-                                elif 'remark' in lq_text:
-                                    logic_remarks = logic_remarks + ('; ' if logic_remarks else '') + str(lq_answer_val)
+                                lq_lower = lq_text.lower()
+                                if 'image' in lq_lower or 'upload' in lq_lower:
+                                    urls = extract_image_urls(lq_answer_val) if lq_answer_val else ''
+                                    if urls and not image_urls:
+                                        image_urls = urls
+                                    subq_answers[lq_text] = urls
+                                elif 'remark' in lq_lower:
+                                    if lq_answer_val:
+                                        logic_remarks = logic_remarks + ('; ' if logic_remarks else '') + str(lq_answer_val)
+                                    subq_answers[lq_text] = str(lq_answer_val) if lq_answer_val else ''
+                                else:
+                                    subq_answers[lq_text] = str(lq_answer_val) if lq_answer_val else ''
 
                         # Use logic remarks if main question has no remarks
                         final_remarks = remarks or logic_remarks
@@ -12046,10 +12069,7 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                                 text_answer,
                                 image_urls,
                                 final_remarks,
-                                consumed_from,
-                                quantity,
-                                after_image,
-                            ] + fut_metadata_cols + fut_close_cols
+                            ] + [subq_answers.get(h, '') for h in dynamic_subq_headers] + fut_metadata_cols + fut_close_cols
                             is_first_row = False
                         else:
                             row = [
@@ -12077,10 +12097,7 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                                 text_answer,
                                 image_urls,
                                 final_remarks,
-                                consumed_from,
-                                quantity,
-                                after_image,
-                            ] + fut_metadata_cols + fut_close_cols
+                            ] + [subq_answers.get(h, '') for h in dynamic_subq_headers] + fut_metadata_cols + fut_close_cols
                         rows.append(row)
 
         # If no rows were added at all (no questions), add a metadata-only row
@@ -13299,18 +13316,9 @@ class BulkImportResponsesFollowupView(APIView):
                     )
                     created_answers += 1
 
-                    consumed_from = str(row.get('Consumed from / SAP Code or Product Name', '')).strip()
-                    if consumed_from == 'nan':
-                        consumed_from = ''
-                    quantity = str(row.get('Quantity', '')).strip()
-                    if quantity == 'nan':
-                        quantity = ''
-                    after_image = str(row.get('After Image', '')).strip()
-                    if after_image == 'nan':
-                        after_image = ''
-
+                    # Dynamically read sub-question/logic question answers from any column
+                    # whose header matches a child question text in the form
                     parent_sub_qs = sub_question_map.get(question_obj.id, {})
-
                     parent_logic_qs = {}
                     q_logic_map = logic_question_map.get(question_obj.id, {})
                     if q_logic_map:
@@ -13328,16 +13336,36 @@ class BulkImportResponsesFollowupView(APIView):
 
                     for child_q_text_lower, child_q_obj in all_child_qs.items():
                         child_answer_val = ''
-                        if ('consumed' in child_q_text_lower or 'sap code' in child_q_text_lower or 'product name' in child_q_text_lower) and consumed_from:
-                            child_answer_val = consumed_from
-                        elif 'quantity' in child_q_text_lower and quantity:
-                            child_answer_val = quantity
-                        elif ('after image' in child_q_text_lower or 'after_image' in child_q_text_lower) and after_image:
-                            child_answer_val = after_image
-                        elif 'image' in child_q_text_lower and after_image and not consumed_from and not quantity:
-                            child_answer_val = after_image
-                        elif 'remark' in child_q_text_lower and remarks:
-                            child_answer_val = remarks
+                        # Try to find a column whose header matches this child question text
+                        for col_name, col_val in row.items():
+                            col_name_str = str(col_name).strip()
+                            if col_name_str.lower() == child_q_text_lower:
+                                val = str(col_val).strip() if col_val is not None else ''
+                                if val and val != 'nan':
+                                    child_answer_val = val
+                                break
+
+                        # Fallback: try keyword matching for backward compatibility
+                        if not child_answer_val:
+                            if 'consumed' in child_q_text_lower or 'sap code' in child_q_text_lower or 'product name' in child_q_text_lower:
+                                val = str(row.get('Consumed from / SAP Code or Product Name', '')).strip()
+                                if val and val != 'nan':
+                                    child_answer_val = val
+                            elif 'quantity' in child_q_text_lower:
+                                val = str(row.get('Quantity', '')).strip()
+                                if val and val != 'nan':
+                                    child_answer_val = val
+                            elif 'after image' in child_q_text_lower or 'after_image' in child_q_text_lower:
+                                val = str(row.get('After Image', '')).strip()
+                                if val and val != 'nan':
+                                    child_answer_val = val
+                            elif 'image' in child_q_text_lower:
+                                val = str(row.get('After Image', '')).strip()
+                                if val and val != 'nan':
+                                    child_answer_val = val
+                            elif 'remark' in child_q_text_lower:
+                                if remarks:
+                                    child_answer_val = remarks
 
                         if child_answer_val:
                             Answer.objects.create(
@@ -13652,10 +13680,106 @@ class DownloadImportTemplateView(APIView):
                 'Response',
                 'Image',
                 'Remarks',
-                'Consumed from / SAP Code or Product Name',
-                'Quantity',
-                'After Image',
             ]
+
+            # ---- Dynamically collect sub-question/logic question texts from form schema ----
+            dynamic_subq_headers = []
+            dynamic_subq_seen = set()
+
+            try:
+                # Build form schema using same prefetch logic as FormResponseFollowupTableView
+                base_qs = (
+                    Form.objects
+                    .filter(is_deleted=False, pk=form.id)
+                    .select_related('folder', 'form_admin', 'deletedBy', 'archivedBy')
+                )
+
+                if form.form_type == FormType.AUDIT:
+                    qs = base_qs.prefetch_related(
+                        'assignee__user', 'assignee__group', 'assignee__leader',
+                        'audit_info__questions',
+                        'audit_info__questions__options',
+                        'audit_info__questions__child_questions',
+                        'audit_info__questions__child_questions__options',
+                        'audit_info__questions__logic_parent_question__logic_questions__options',
+                        'audit_info__questions__logic_parent_question__follow_ups',
+                        'audit_info__questions__logic_parent_question__follow_ups__task_close_questions__options',
+                        'audit_group__questions',
+                        'audit_group__questions__options',
+                        'audit_group__questions__child_questions',
+                        'audit_group__questions__child_questions__options',
+                        'audit_group__questions__logic_parent_question__logic_questions__options',
+                        'audit_group__questions__logic_parent_question__follow_ups',
+                        'audit_group__questions__logic_parent_question__follow_ups__task_close_questions__options',
+                    )
+                else:
+                    stage_access_qs = StageAccess.objects.select_related('allow_user', 'allow_group', 'form', 'stage')
+                    question_qs = (
+                        Question.objects
+                        .select_related('form', 'stage', 'parent_question')
+                        .prefetch_related(
+                            'options',
+                            'child_questions',
+                            'child_questions__options',
+                            'child_questions__child_questions',
+                            'child_questions__child_questions__options',
+                            'child_questions__logic_parent_question__logic_questions__options',
+                            'child_questions__logic_parent_question__follow_ups',
+                            'child_questions__logic_parent_question__follow_ups__task_close_questions__options',
+                            'logic_parent_question__logic_questions__options',
+                            'logic_parent_question__follow_ups',
+                            'logic_parent_question__follow_ups__task_close_questions__options',
+                        )
+                    )
+                    stage_qs = (
+                        Stage.objects
+                        .select_related('form')
+                        .prefetch_related(
+                            models.Prefetch('access_parent_stage', queryset=stage_access_qs),
+                            models.Prefetch('questions', queryset=question_qs),
+                        )
+                    )
+                    qs = base_qs.prefetch_related(
+                        'assignee__user', 'assignee__group', 'assignee__leader',
+                        models.Prefetch('stages', queryset=stage_qs),
+                    )
+
+                optimized_instance = qs.get(pk=form.id)
+                formSchema = FormSerializer(optimized_instance, many=False).data
+
+                # Collect sub-question texts from all stages
+                for stage in formSchema.get('stages', []):
+                    for question in stage.get('questions', []):
+                        for sub_q in question.get('sub_questions', []):
+                            sub_q_text = (sub_q.get('question') or '').strip()
+                            if sub_q_text and sub_q_text.lower() not in dynamic_subq_seen:
+                                dynamic_subq_seen.add(sub_q_text.lower())
+                                dynamic_subq_headers.append(sub_q_text)
+                        for logic in question.get('logics', []):
+                            for logic_q in logic.get('logic_questions', []):
+                                lq_text = (logic_q.get('question') or '').strip()
+                                if lq_text and lq_text.lower() not in dynamic_subq_seen:
+                                    dynamic_subq_seen.add(lq_text.lower())
+                                    dynamic_subq_headers.append(lq_text)
+
+                # Also check audit groups
+                for audit_group in formSchema.get('audit_group', []):
+                    for question in audit_group.get('questions', []):
+                        for sub_q in question.get('sub_questions', []):
+                            sub_q_text = (sub_q.get('question') or '').strip()
+                            if sub_q_text and sub_q_text.lower() not in dynamic_subq_seen:
+                                dynamic_subq_seen.add(sub_q_text.lower())
+                                dynamic_subq_headers.append(sub_q_text)
+                        for logic in question.get('logics', []):
+                            for logic_q in logic.get('logic_questions', []):
+                                lq_text = (logic_q.get('question') or '').strip()
+                                if lq_text and lq_text.lower() not in dynamic_subq_seen:
+                                    dynamic_subq_seen.add(lq_text.lower())
+                                    dynamic_subq_headers.append(lq_text)
+            except Exception as e:
+                logger.warning(f"DownloadImportTemplateView: Error collecting dynamic sub-questions: {e}")
+
+            base_headers += dynamic_subq_headers
 
             metadata_headers = [
                 'Followup Task ID',
@@ -13822,9 +13946,6 @@ class DownloadImportTemplateView(APIView):
                 'Response': ('Answer text for the question', 'Yes'),
                 'Image': ('Image URLs for the question answer (optional)', 'No'),
                 'Remarks': ('Additional remarks for the question (optional)', 'No'),
-                'Consumed from / SAP Code or Product Name': ('Value for the sub-question/logic question with Consumed/SAP Code/Product Name in its text. Fill on the same row as the main question.', 'No'),
-                'Quantity': ('Value for the sub-question/logic question with Quantity in its text. Fill on the same row as the main question.', 'No'),
-                'After Image': ('Image URL for the sub-question/logic question with After Image in its text. Fill on the same row as the main question.', 'No'),
                 'Followup Task ID': ('Leave blank - auto-generated', 'No'),
                 'Followup Deadline': ('Deadline for the followup task. Only fill on the row of the question that triggers the followup.', 'No'),
                 'Followup Task Status': ('Not Started / In Progress / Completed / Cancelled. Only fill on the row of the question that triggers the followup.', 'No'),
@@ -13836,6 +13957,8 @@ class DownloadImportTemplateView(APIView):
                 if h in col_descriptions:
                     desc, req = col_descriptions[h]
                     instructions.append([h, desc, req])
+                elif h in dynamic_subq_headers:
+                    instructions.append([h, f'Sub-question/logic question answer. Fill on the same row as the main question (Item).', 'No'])
                 elif h.startswith('Follow Q') and 'Question' in h:
                     instructions.append([h, 'Close question text for the followup task. Fill on the same row as the Follow up action Title.', 'No'])
                 elif h.startswith('Follow Q') and 'Answer' in h:
