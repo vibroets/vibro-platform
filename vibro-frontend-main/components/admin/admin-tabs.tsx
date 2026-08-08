@@ -13,7 +13,7 @@ const GroupManagement = dynamic(() => import("@/components/admin/group-managemen
 const OrganizationManagement = dynamic(() => import("@/components/admin/organization-management"), { ssr: false })
 
 
-export function AdminTabs() {
+export function AdminTabs({ canEdit = false }: { canEdit?: boolean }) {
   const currentUser = useSelector(selectUser)
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -64,13 +64,13 @@ return (
     </TabsList>
 
       <TabsContent value="users" className="mt-6">
-        <UserManagement />
+        <UserManagement canEdit={canEdit} />
       </TabsContent>
       <TabsContent value="groups" className="mt-6">
-        <GroupManagement />
+        <GroupManagement canEdit={canEdit} />
       </TabsContent>
       <TabsContent value="organization" className="mt-6">
-        <OrganizationManagement />
+        <OrganizationManagement canEdit={canEdit} />
       </TabsContent>
       <TabsContent value="super-admin" className="mt-6">
         <div className="mb-6 flex justify-between items-center">

@@ -13,78 +13,78 @@ export const typography = {
   // ========== DISPLAY & HEADLINES ==========
   // Use for main page titles, major sections
   displayLarge: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700' as TextStyle['fontWeight'],
-    lineHeight: 36,
+    lineHeight: 32,
     letterSpacing: 0,
   },
   displayMedium: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700' as TextStyle['fontWeight'],
-    lineHeight: 32,
+    lineHeight: 28,
     letterSpacing: 0,
   },
 
   // ========== TITLES ==========
   // Use for group headers, section titles
   titleLarge: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '600' as TextStyle['fontWeight'],
-    lineHeight: 28,
+    lineHeight: 24,
     letterSpacing: 0,
   },
   titleMedium: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600' as TextStyle['fontWeight'],
-    lineHeight: 24,
+    lineHeight: 21,
     letterSpacing: 0.15,
   },
   titleSmall: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600' as TextStyle['fontWeight'],
-    lineHeight: 22,
+    lineHeight: 19,
     letterSpacing: 0.1,
   },
 
   // ========== BODY TEXT ==========
   // Use for question labels, main content
   bodyLarge: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '500' as TextStyle['fontWeight'],
-    lineHeight: 24,
+    lineHeight: 20,
     letterSpacing: 0.5,
   },
   bodyMedium: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '400' as TextStyle['fontWeight'],
-    lineHeight: 22,
+    lineHeight: 18,
     letterSpacing: 0.25,
   },
   bodySmall: {
     fontSize: 13,
     fontWeight: '400' as TextStyle['fontWeight'],
-    lineHeight: 18,
+    lineHeight: 16,
     letterSpacing: 0.4,
   },
 
   // ========== LABELS ==========
   // Use for input field text, buttons
   labelLarge: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500' as TextStyle['fontWeight'],
-    lineHeight: 22,
+    lineHeight: 19,
     letterSpacing: 0.1,
   },
   labelMedium: {
     fontSize: 14,
     fontWeight: '500' as TextStyle['fontWeight'],
-    lineHeight: 20,
+    lineHeight: 18,
     letterSpacing: 0.5,
   },
   labelSmall: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500' as TextStyle['fontWeight'],
-    lineHeight: 16,
+    lineHeight: 15,
     letterSpacing: 0.5,
   },
 
@@ -93,13 +93,13 @@ export const typography = {
   caption: {
     fontSize: 12,
     fontWeight: '400' as TextStyle['fontWeight'],
-    lineHeight: 16,
+    lineHeight: 15,
     letterSpacing: 0.4,
   },
   overline: {
     fontSize: 11,
     fontWeight: '500' as TextStyle['fontWeight'],
-    lineHeight: 14,
+    lineHeight: 13,
     letterSpacing: 1,
     textTransform: 'uppercase' as TextStyle['textTransform'],
   },

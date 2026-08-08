@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   label: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "bold",
     marginBottom: 8,
   },
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     color: "red",
   },
   description: {
-    fontSize: 11,
+    fontSize: 13,
     color: "#666",
     marginBottom: 12,
   },
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   inputText: {
-    fontSize: 12,
+    fontSize: 14,
     color: "#333",
   },
   /* Styles for the date/time picker touchable and text */
@@ -235,7 +235,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ddd",
     borderRadius: 8,
-    padding: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     backgroundColor: "#fff",
   },
   dateText: {
@@ -256,8 +257,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "red",
-    marginTop: 5,
-    fontSize: 14,
+    marginTop: 4,
+    fontSize: 13,
   },
 });
 

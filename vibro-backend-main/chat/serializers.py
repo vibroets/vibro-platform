@@ -56,7 +56,7 @@ class ChatGroupSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return obj.messages.exclude(
                 read_statuses__user=request.user
-            ).count()
+            ).exclude(sender=request.user).count()
         return 0
 
 

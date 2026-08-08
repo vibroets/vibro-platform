@@ -58,7 +58,7 @@ export default function ClientLayout({
         </div>
       )}
       {children}
-      <ChatBot />
+      {pathname !== "/login" && <ChatBot />}
     </>
   );
 }

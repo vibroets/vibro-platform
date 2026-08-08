@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VibroETS - Operational Excellence Pamphlet</title>
+<style>
+  @page {
+    size: A4 landscape;
+    margin: 0;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    background: #e5e5e5;
+    color: #333;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .page {
+    width: 297mm;
+    height: 210mm;
+    display: flex;
+    margin: 10mm auto;
+    background: white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+    overflow: hidden;
+  }
+
+  .page-break {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .panel {
+    width: 99mm;
+    height: 210mm;
+    padding: 9mm 7mm;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel:nth-child(1) { border-right: 1px dashed #c4c4c4; }
+  .panel:nth-child(2) { border-right: 1px dashed #c4c4c4; }
+
+  /* ========== FRONT COVER ========== */
+  .front-cover {
+    background: #0f172a;
+    color: white;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+
+  .front-cover::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(37,99,235,0.25) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(59,130,246,0.2) 0%, transparent 50%),
+      linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  }
+
+  .front-cover > * { position: relative; z-index: 1; }
+
+  .front-cover .logo-area {
+    margin-bottom: 8mm;
+  }
+
+  .front-cover .logo-area .logo-icon {
+    width: 18mm;
+    height: 18mm;
+    margin: 0 auto 4mm;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 800;
+    color: white;
+    box-shadow: 0 4px 15px rgba(59,130,246,0.4);
+  }
+
+  .front-cover h1 {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin-bottom: 2mm;
+  }
+
+  .front-cover h1 .blue { color: #60a5fa; }
+  .front-cover h1 .white { color: white; }
+
+  .front-cover .tagline {
+    font-size: 12px;
+    font-weight: 400;
+    color: #94a3b8;
+    margin-bottom: 8mm;
+    letter-spacing: 0.5px;
+  }
+
+  .front-cover .divider-line {
+    width: 40mm;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+    margin: 0 auto 8mm;
+  }
+
+  .front-cover .cover-points {
+    text-align: left;
+    width: 70mm;
+  }
+
+  .front-cover .cover-points li {
+    list-style: none;
+    font-size: 10px;
+    padding: 2.5mm 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    gap: 3mm;
+    color: #cbd5e1;
+  }
+
+  .front-cover .cover-points li::before {
+    content: "\2713";
+    font-size: 12px;
+    font-weight: bold;
+    color: #3b82f6;
+    flex-shrink: 0;
+  }
+
+  .front-cover .cover-footer {
+    margin-top: 8mm;
+    font-size: 9px;
+    color: #64748b;
+    letter-spacing: 0.5px;
+  }
+
+  /* ========== BACK COVER ========== */
+  .back-cover {
+    background: #f8fafc;
+    justify-content: space-between;
+  }
+
+  .back-cover::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 6mm;
+    background: linear-gradient(90deg, #1e3a8a, #2563eb, #3b82f6);
+  }
+
+  .back-cover > * { position: relative; z-index: 1; }
+
+  .back-cover .back-header {
+    text-align: center;
+    padding: 4mm 0 3mm;
+    border-bottom: 2px solid #2563eb;
+    margin-top: 2mm;
+  }
+
+  .back-cover .back-header h2 {
+    font-size: 15px;
+    color: #1e3a8a;
+    font-weight: 700;
+  }
+
+  .back-cover .back-header p {
+    font-size: 8.5px;
+    color: #64748b;
+    margin-top: 1mm;
+  }
+
+  .back-cover .importance-section {
+    flex: 1;
+    padding: 3mm 0;
+  }
+
+  .back-cover .importance-item {
+    margin-bottom: 2.5mm;
+    padding: 2.5mm 3mm;
+    background: white;
+    border-radius: 5px;
+    border-left: 3px solid #2563eb;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .back-cover .importance-item h3 {
+    font-size: 9.5px;
+    color: #2563eb;
+    font-weight: 700;
+    margin-bottom: 0.5mm;
+  }
+
+  .back-cover .importance-item p {
+    font-size: 8px;
+    color: #475569;
+    line-height: 1.35;
+  }
+
+  .back-cover .contact-block {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white;
+    padding: 5mm 4mm;
+    border-radius: 6px;
+    text-align: center;
+  }
+
+  .back-cover .contact-block h3 {
+    font-size: 11px;
+    margin-bottom: 2mm;
+    font-weight: 600;
+  }
+
+  .back-cover .contact-block p {
+    font-size: 9px;
+    margin-bottom: 1mm;
+    color: #dbeafe;
+  }
+
+  /* ========== INSIDE FLAP ========== */
+  .inside-flap {
+    background: white;
+  }
+
+  .inside-flap::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 6mm;
+    background: linear-gradient(90deg, #1e3a8a, #2563eb, #3b82f6);
+  }
+
+  .inside-flap > * { position: relative; z-index: 1; }
+
+  .inside-flap .flap-title {
+    font-size: 14px;
+    color: #1e3a8a;
+    font-weight: 700;
+    margin-top: 2mm;
+    margin-bottom: 1mm;
+    border-bottom: 2px solid #2563eb;
+    padding-bottom: 1.5mm;
+  }
+
+  .inside-flap .flap-subtitle {
+    font-size: 8.5px;
+    color: #64748b;
+    margin-bottom: 3.5mm;
+  }
+
+  .inside-flap .overview-item {
+    margin-bottom: 2.5mm;
+    padding: 2.5mm 3mm;
+    background: #f8fafc;
+    border-radius: 5px;
+    border-left: 3px solid #2563eb;
+  }
+
+  .inside-flap .overview-item h3 {
+    font-size: 9px;
+    color: #1e3a8a;
+    font-weight: 700;
+    margin-bottom: 0.5mm;
+  }
+
+  .inside-flap .overview-item p {
+    font-size: 7.5px;
+    color: #475569;
+    line-height: 1.35;
+  }
+
+  /* ========== INSIDE PANELS (Side 2) ========== */
+  .inside-panel {
+    background: white;
+  }
+
+  .inside-panel::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 6mm;
+    background: linear-gradient(90deg, #1e3a8a, #2563eb, #3b82f6);
+  }
+
+  .inside-panel > * { position: relative; z-index: 1; }
+
+  .inside-panel .module-header {
+    display: flex;
+    align-items: center;
+    gap: 2.5mm;
+    margin-top: 2mm;
+    margin-bottom: 2mm;
+    padding-bottom: 1.5mm;
+    border-bottom: 2px solid #2563eb;
+  }
+
+  .inside-panel .module-icon {
+    width: 6mm;
+    height: 6mm;
+    background: linear-gradient(135deg, #2563eb, #1e3a8a);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    flex-shrink: 0;
+  }
+
+  .inside-panel .module-header h2 {
+    font-size: 11px;
+    color: #1e3a8a;
+    font-weight: 700;
+  }
+
+  .inside-panel .features-list {
+    list-style: none;
+    margin-bottom: 2mm;
+  }
+
+  .inside-panel .features-list li {
+    font-size: 7.5px;
+    color: #334155;
+    padding: 0.7mm 0;
+    padding-left: 3.5mm;
+    position: relative;
+    line-height: 1.3;
+  }
+
+  .inside-panel .features-list li::before {
+    content: "\25B8";
+    position: absolute;
+    left: 0;
+    color: #2563eb;
+    font-weight: bold;
+  }
+
+  .inside-panel .benefit-box {
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    border-left: 3px solid #3b82f6;
+    padding: 2mm 3mm;
+    border-radius: 4px;
+  }
+
+  .inside-panel .benefit-box p {
+    font-size: 7.5px;
+    color: #1e40af;
+    line-height: 1.35;
+  }
+
+  .inside-panel .benefit-box strong {
+    font-size: 8px;
+    color: #1e3a8a;
+  }
+
+  .inside-panel .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #cbd5e1, transparent);
+    margin: 2.5mm 0;
+  }
+
+  /* Print */
+  @media print {
+    body { background: white; }
+    .page { margin: 0; box-shadow: none; }
+    .no-print { display: none; }
+  }
+
+  .no-print {
+    text-align: center;
+    padding: 10mm;
+  }
+
+  .no-print button {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 10px 30px;
+    font-size: 16px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .no-print button:hover {
+    background: #1e3a8a;
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= SIDE 1 (OUTSIDE) ================= -->
+<div class="page page-break">
+
+  <!-- Panel 1: Inside Flap -->
+  <div class="panel inside-flap">
+    <div class="flap-title">Why VibroETS?</div>
+    <div class="flap-subtitle">Operational Excellence, Simplified</div>
+
+    <div class="overview-item">
+      <h3>&#128202; Single Platform, Zero Fragmentation</h3>
+      <p>Replaces WhatsApp + Excel + Email + Paper forms with one unified system. One login, one source of truth for all operational activities.</p>
+    </div>
+
+    <div class="overview-item">
+      <h3>&#128269; Audit-Ready Compliance</h3>
+      <p>Every action logged with timestamps and user IDs. ISO 9001, 14001, 45001 ready &mdash; no more scrambling during audits.</p>
+    </div>
+
+    <div class="overview-item">
+      <h3>&#9989; Accountability &amp; Closure</h3>
+      <p>Tasks don't disappear. NCs don't stay open. Every action has an owner, a deadline, and a trackable status.</p>
+    </div>
+
+    <div class="overview-item">
+      <h3>&#128200; Data-Driven Decisions</h3>
+      <p>Real numbers on compliance rates, training completion, and task closure &mdash; not opinions or guesswork.</p>
+    </div>
+
+    <div class="overview-item">
+      <h3>&#127760; Multi-Location Scalability</h3>
+      <p>Manage all sites from one platform. Location leaders see their location; admins see everything across the organization.</p>
+    </div>
+
+    <div class="overview-item">
+      <h3>&#128241; Mobile + Web Accessibility</h3>
+      <p>Field workers use the mobile app with photos and geo-tags. Managers use the web dashboard to review and act.</p>
+    </div>
+
+    <div class="overview-item">
+      <h3>&#128274; Security &amp; Role-Based Access</h3>
+      <p>Organization-level data isolation. Users see only what their role permits. Super admin controls everything.</p>
+    </div>
+  </div>
+
+  <!-- Panel 2: Back Cover -->
+  <div class="panel back-cover">
+    <div class="back-header">
+      <h2>Transform Your Operations</h2>
+      <p>From paper-and-WhatsApp chaos to structured, auditable excellence</p>
+    </div>
+
+    <div class="importance-section">
+      <div class="importance-item">
+        <h3>&#128176; Cost Savings</h3>
+        <p>No paper forms, no separate LMS or survey tools, reduced manual data entry, faster issue detection.</p>
+      </div>
+      <div class="importance-item">
+        <h3>&#127981; Operational Risk Reduction</h3>
+        <p>Faster NC detection and closure. Nothing falls through the cracks with automated tracking.</p>
+      </div>
+      <div class="importance-item">
+        <h3>&#128203; Standardization</h3>
+        <p>Every location follows the same process. Consistent data, consistent quality across all sites.</p>
+      </div>
+      <div class="importance-item">
+        <h3>&#128101; Team Productivity</h3>
+        <p>Less time on paperwork and follow-ups. More time on actual operations and improvement.</p>
+      </div>
+      <div class="importance-item">
+        <h3>&#128202; Real-Time Visibility</h3>
+        <p>Leaders see live dashboards. No waiting for monthly reports or end-of-quarter summaries.</p>
+      </div>
+    </div>
+
+    <div class="contact-block">
+      <h3>Get in Touch</h3>
+      <p>&#127760; www.vibroets.com</p>
+      <p>&#9993; info@vibroets.com</p>
+      <p>&#128737; support@vibroets.com</p>
+    </div>
+  </div>
+
+  <!-- Panel 3: Front Cover -->
+  <div class="panel front-cover">
+    <div class="logo-area">
+      <div class="logo-icon">V</div>
+    </div>
+
+    <h1><span class="blue">Vibro</span><span class="white">ETS</span></h1>
+    <div class="tagline">Operational Excellence, Simplified</div>
+
+    <div class="divider-line"></div>
+
+    <ul class="cover-points">
+      <li>Unified Operational Excellence Platform</li>
+      <li>Audit-Ready Compliance Management</li>
+      <li>Mobile + Web Accessibility</li>
+      <li>Multi-Location, Multi-Role Support</li>
+      <li>Real-Time Dashboards &amp; Analytics</li>
+    </ul>
+
+    <div class="cover-footer">www.vibroets.com</div>
+  </div>
+
+</div>
+
+<!-- ================= SIDE 2 (INSIDE) ================= -->
+<div class="page">
+
+  <!-- Panel 4: Left Inside -->
+  <div class="panel inside-panel">
+    <div class="module-header">
+      <div class="module-icon">D</div>
+      <h2>Dashboard</h2>
+    </div>
+    <ul class="features-list">
+      <li>Unified analytics with KPIs, charts, and summaries</li>
+      <li>Real-time visibility into operational metrics</li>
+      <li>Role-based data views for different hierarchy levels</li>
+      <li>Cross-module insights in one screen</li>
+    </ul>
+    <div class="benefit-box">
+      <strong>Benefit:</strong> Leaders get instant visibility into operations without chasing teams. One screen replaces multiple Excel trackers and WhatsApp groups.
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="module-header">
+      <div class="module-icon">A</div>
+      <h2>Announcements</h2>
+    </div>
+    <ul class="features-list">
+      <li>Broadcast announcements with categories &amp; tags</li>
+      <li>Pin important notices; request acknowledgement</li>
+      <li>Track views, likes, and read receipts</li>
+      <li>Share with specific groups; prevent downloads</li>
+    </ul>
+    <div class="benefit-box">
+      <strong>Benefit:</strong> Ensures critical information reaches every employee with proof of acknowledgement. No more "I didn't see the notice."
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="module-header">
+      <div class="module-icon">P</div>
+      <h2>Polls</h2>
+    </div>
+    <ul class="features-list">
+      <li>Single/multiple choice polls with real-time results</li>
+      <li>Target all users or specific groups</li>
+      <li>Anonymous or named voting options</li>
+      <li>Instant visual results dashboard</li>
+    </ul>
+    <div class="benefit-box">
+      <strong>Benefit:</strong> Instant, auditable results. Quick pulse checks on employee sentiment or operational decisions without manual tallying.
+    </div>
+  </div>
+
+  <!-- Panel 5: Middle Inside -->
+  <div class="panel inside-panel">
+    <div class="module-header">
+      <div class="module-icon">F</div>
+      <h2>Forms</h2>
+    </div>
+    <ul class="features-list">
+      <li>Dynamic forms with multiple question types</li>
+      <li>Logic-based conditional follow-up questions</li>
+      <li>Image attachments, geo-tagging, digital signatures</li>
+      <li>Bulk import of old Excel responses with follow-up data</li>
+      <li>Auto-generated NC closure tasks from responses</li>
+      <li>Export to CSV/Excel with follow-up data</li>
+    </ul>
+    <div class="benefit-box">
+      <strong>Benefit:</strong> Eliminates paper-based checklists and manual transcription errors. Non-conformances are automatically tracked to closure. Historical data preserved and searchable.
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="module-header">
+      <div class="module-icon">T</div>
+      <h2>Tasks</h2>
+    </div>
+    <ul class="features-list">
+      <li>Task assignment with deadlines &amp; priority levels</li>
+      <li>Auto-generated from form submissions (NC closure)</li>
+      <li>Bulk operations and filtering by status/assignee/date</li>
+      <li>Automated notifications and reminders</li>
+    </ul>
+    <div class="benefit-box">
+      <strong>Benefit:</strong> Single source of truth for all tasks. Every task has an owner and deadline. Closure rates are measurable, not guesswork.
+    </div>
+  </div>
+
+  <!-- Panel 6: Right Inside -->
+  <div class="panel inside-panel">
+    <div class="module-header">
+      <div class="module-icon">L</div>
+      <h2>Learning &amp; Training</h2>
+    </div>
+    <ul class="features-list">
+      <li>Training Calendar with venue &amp; trainer management</li>
+      <li>Participant enrollment with waitlist management</li>
+      <li>Multi-level approval workflow for nominations</li>
+      <li>Training analytics: effectiveness, completion rates</li>
+      <li>Automated notifications to participants &amp; trainers</li>
+      <li>Admin dashboard for L&amp;D managers</li>
+    </ul>
+    <div class="benefit-box">
+      <strong>Benefit:</strong> Audit-ready training records for ISO/certification. Eliminates double-booking. Training effectiveness is measurable, not just "completed" checkboxes.
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="module-header">
+      <div class="module-icon">Pl</div>
+      <h2>Planner</h2>
+    </div>
+    <ul class="features-list">
+      <li>Calendar-based operational planning</li>
+      <li>Schedule audits, inspections, recurring activities</li>
+      <li>Visual timeline of planned vs. completed</li>
+    </ul>
+    <div class="benefit-box">
+      <strong>Benefit:</strong> Shared calendar ensures audits happen on schedule. Teams can see what's planned and prepare in advance.
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="module-header">
+      <div class="module-icon">C</div>
+      <h2>Chat (Org-Specific)</h2>
+    </div>
+    <ul class="features-list">
+      <li>Real-time messaging with WebSocket support</li>
+      <li>Group chats and direct messages within org</li>
+      <li>Image, voice, video, and file sharing</li>
+      <li>Push notifications for new messages</li>
+    </ul>
+    <div class="benefit-box">
+      <strong>Benefit:</strong> Keeps work communication within the platform. All conversations are organization-owned, not lost when employees leave.
+    </div>
+  </div>
+
+</div>
+
+<!-- Controls (not printed) -->
+<div class="no-print">
+  <h2>Pamphlet Controls</h2>
+  <p style="margin-bottom: 15px; color: #666;">Click Print to print the pamphlet on A4 landscape paper. Tri-fold: right panel folds in, then left panel over it.</p>
+  <button onclick="window.print()">Print Pamphlet</button>
+</div>
+
+</body>
+</html>

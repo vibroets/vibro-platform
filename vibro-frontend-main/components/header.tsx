@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import React, { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useSelector, useDispatch } from "react-redux"
-import { selectUser, clearAuth } from "@/redux/slices/authSlice"
+import { useSelector } from "react-redux"
+import { selectUser } from "@/redux/slices/authSlice"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,7 +65,6 @@ export function Header({
   const [showModal, setShowModal] = useState(false)
   const [showBackConfirm, setShowBackConfirm] = useState(false)
   const user = useSelector(selectUser)
-  const dispatch = useDispatch()
   const { isFormDirty, setIsFormDirty } = useFormStore()
   const completedJobs = useExcelJobStore((state) => state.completedJobs);
   const clearJob = useExcelJobStore((state) => state.clearJob);
@@ -87,8 +86,10 @@ export function Header({
   }
 
   const handleLogout = () => {
-    dispatch(clearAuth())
-    router.push("/login")
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("user");
+    window.location.href = "/login";
   }
 
   return (

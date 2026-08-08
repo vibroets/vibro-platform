@@ -136,6 +136,8 @@ class ModulePermisions(models.Model):
         ('learning_training','Learning & Training'),
         ('planner','Planner'),
         ('attendance','Attendance'),
+        ('guides','Guides'),
+        ('administration','Administration'),
     ]
     ACCESS_CHOICES=[
         ('no_access','No Access'),

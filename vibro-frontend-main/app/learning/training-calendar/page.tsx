@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Users, Plus, Edit, Trash2, FileText, Target, AlertTriangle, Save, X, CheckCircle, XCircle, UserPlus, ClipboardList, Send, Bell } from "lucide-react";
 import axiosInstance from "@/utils/axiosInstance";
 import LearningLayout from "@/components/learning/LearningLayout";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 
 interface TrainingFormState {
   title: string; code: string; category: string; training_type: string; description: string;
@@ -28,6 +29,8 @@ const defaultForm: TrainingFormState = {
 };
 
 export default function TrainingCalendarPage() {
+  const { isFullAccess, isViewOnly, isSuperAdmin } = useModuleAccess("learning_training");
+  const canEdit = isFullAccess || isSuperAdmin;
   const [currentDate, setCurrentDate] = useState(new Date());
   const [trainings, setTrainings] = useState<any[]>([]);
   const [trainers, setTrainers] = useState<any[]>([]);
@@ -273,9 +276,13 @@ export default function TrainingCalendarPage() {
           <h2 className="text-lg font-bold text-gray-900">{monthNames[month]} {year}</h2>
           <button onClick={nextMonth} className="p-2 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"><ChevronRight className="h-5 w-5 text-gray-600" /></button>
         </div>
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-[#3A72EC] text-white rounded-lg hover:bg-[#2a5dbf] transition-colors text-sm font-medium">
-          <Plus className="h-4 w-4" /> Schedule Training
-        </button>
+        {canEdit ? (
+          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-[#3A72EC] text-white rounded-lg hover:bg-[#2a5dbf] transition-colors text-sm font-medium">
+            <Plus className="h-4 w-4" /> Schedule Training
+          </button>
+        ) : isViewOnly ? (
+          <span className="text-xs text-gray-500 italic">View only access</span>
+        ) : null}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
@@ -350,10 +357,10 @@ export default function TrainingCalendarPage() {
                     </td>
                     <td className="py-2.5 px-4">
                       <div className="flex items-center gap-1">
-                        {t.status === "pending" && (!t.approval_type || t.approval_type === "none") && (
+                        {canEdit && t.status === "pending" && (!t.approval_type || t.approval_type === "none") && (
                           <button onClick={() => handleStatusUpdate(t.id, "approved")} disabled={actionLoading} className="p-1.5 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors" title="Approve"><CheckCircle className="h-4 w-4" /></button>
                         )}
-                        {t.status === "approved" && (
+                        {canEdit && t.status === "approved" && (
                           <>
                             {enrollmentCounts[t.id] > 0 ? (
                               <>
@@ -369,8 +376,12 @@ export default function TrainingCalendarPage() {
                         {t.status === "completed" && (
                           <a href="/learning/attendance" className="p-1.5 rounded-md bg-gray-50 text-gray-500 hover:bg-gray-100 transition-colors" title="View Attendance"><ClipboardList className="h-4 w-4" /></a>
                         )}
-                        <button onClick={() => openEdit(t)} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors" title="Edit"><Edit className="h-4 w-4" /></button>
-                        <button onClick={() => handleDelete(t.id)} className="p-1.5 rounded-md text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                        {canEdit && (
+                          <>
+                            <button onClick={() => openEdit(t)} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors" title="Edit"><Edit className="h-4 w-4" /></button>
+                            <button onClick={() => handleDelete(t.id)} className="p-1.5 rounded-md text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

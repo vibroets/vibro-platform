@@ -1,4 +1,5 @@
-import { View, Text, SafeAreaView, StatusBar, TouchableOpacity, Platform } from "react-native";
+import { View, Text, StatusBar, TouchableOpacity, Platform } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import React from "react";
 import styles from "@/styles/commonStyles";
 import Icon from "react-native-vector-icons/MaterialIcons";
@@ -11,7 +12,7 @@ const Sentmessage = () => {
 
   const navigation = useNavigation();
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar
         barStyle="light-content"
         backgroundColor={styles.header.backgroundColor}

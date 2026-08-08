@@ -1,7 +1,6 @@
 import TaskCloseQuestionsScreen from "@/app/(app)/(tabs)/forms/task-close-questions";
 import AuditFormScreen from "@/components/form/screens/AudiFormScreen";
 import TodoMultiStageFormScreen from "@/components/form/screens/TodoMultiStageFormScreen";
-import SearchBar from "@/components/SearchBar";
 import React from "react";
 import { StyleSheet, View } from "react-native";
 
@@ -70,9 +69,6 @@ export default function TodoFormScreen({
   // For regular todo forms, use TodoMultiStageFormScreen
   return (
     <View style={styles.container}>
-      <View style={{ marginBottom: 16, marginHorizontal: 16 }}>
-        <SearchBar placeholder="Filter..." />
-      </View>
       <TodoMultiStageFormScreen
         formId={formId}
         taskId={taskId}
@@ -90,9 +86,6 @@ export default function TodoFormScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 10,
-    // margin: 10,
-    // backgroundColor: "#fff",
   },
   taskCloseContainer: {
     flex: 1,

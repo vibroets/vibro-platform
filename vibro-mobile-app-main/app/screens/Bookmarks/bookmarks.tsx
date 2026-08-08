@@ -1,4 +1,5 @@
-import { View, Text, SafeAreaView, StatusBar, TouchableOpacity } from "react-native";
+import { View, Text, StatusBar, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import React from "react";
 import styles from "@/styles/commonStyles";
 import Icon  from "react-native-vector-icons/MaterialIcons";
@@ -8,7 +9,7 @@ const Bookmarks = () => {
 
   const navigation = useNavigation()
   return (
-    <SafeAreaView>
+    <SafeAreaView style={{ flex: 1 }} edges={['top']}>
       <StatusBar
         barStyle={"light-content"}
         backgroundColor={styles.header.backgroundColor}

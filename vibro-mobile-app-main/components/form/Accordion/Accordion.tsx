@@ -78,17 +78,17 @@ const styles = StyleSheet.create({
   container: {
     borderWidth: 1,
     borderColor: "#ddd",
-    marginBottom: 10,
+    marginBottom: 6,
     marginHorizontal: 16,
     overflow: "hidden",
     backgroundColor: "#fff",
     borderBottomRightRadius: 8,
     borderBottomLeftRadius: 8,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
     maxWidth: "100%", // Responsive: prevent overflow
   },
   header: {
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   content: {
-    padding: 15,
+    padding: 10,
     width: "100%", // Ensure content stays within bounds
   },
 
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 8,
     alignItems: "center",
     justifyContent: "center",
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#939393",
     borderTopLeftRadius: 10,
     borderTopRightRadius: 10,
-    minHeight: 48, // Accessibility: minimum touch target
+    minHeight: 40, // Accessibility: minimum touch target
   },
   activeTab: {
     backgroundColor: "#2196f3",
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   activeTabTitle: {
     color: "#fff",
     fontWeight: "bold",
-    fontSize: 14,
+    fontSize: 13,
     flex: 1,
     textAlign: "left",
   },

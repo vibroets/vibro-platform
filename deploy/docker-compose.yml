@@ -68,6 +68,17 @@ services:
       args:
         - NEXT_PUBLIC_API_URL=https://www.vibroets.com/api
     restart: always
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=10m
+      - /app/.next/cache:noexec,nosuid,size=50m
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 200
     depends_on:
       - backend
     environment:

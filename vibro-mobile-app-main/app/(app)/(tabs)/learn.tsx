@@ -199,7 +199,7 @@ setInterval(function(){
 };
 
 const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }: { course: any; scheduleId?: any; onBack: () => void; onStartFollowUp?: () => void; onComplete?: () => void }) => {
-  const rawUrl = course.video_url || course.video_file_url || course.content_url || course.file_url || getMediaUrl(course.video_file) || null;
+  const rawUrl = course.video_url || course.video_file_url || course.file_url || course.content_url || getMediaUrl(course.video_file) || null;
   const isYouTube = rawUrl && rawUrl.includes("youtu");
   const [videoProgress, setVideoProgress] = useState(0);
   const [showLockedMsg, setShowLockedMsg] = useState(false);
@@ -208,6 +208,8 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
   const videoEndedRef = useRef(false);
   const progressSaveTimer = useRef<any>(null);
   const latestProgressRef = useRef(0);
+  const stageAlreadyCompleted = course.is_completed === true || course.isCompleted === true;
+  const [showCompleteButton, setShowCompleteButton] = useState(stageAlreadyCompleted);
 
   useEffect(() => {
     if (course.id && course.type) {
@@ -239,7 +241,7 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
         if (parsed.progress >= 95 && !videoEndedRef.current) {
           videoEndedRef.current = true;
           if (course.id && course.type) clearVideoProgress(course._progressScheduleId, course.id, course.type, course.parentContentId, course.parentContentType);
-          handleBack();
+          setShowCompleteButton(true);
         }
       } else if (parsed.type === "locked") {
         setShowLockedMsg(true);
@@ -250,7 +252,7 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
         if (!videoEndedRef.current) {
           videoEndedRef.current = true;
           if (course.id && course.type) clearVideoProgress(course._progressScheduleId, course.id, course.type, course.parentContentId, course.parentContentType);
-          handleBack();
+          setShowCompleteButton(true);
         }
       } else if (parsed.type === "error") {
         Alert.alert("Video Error", "Failed to load video. The video file may be inaccessible or the URL is invalid.\n\nURL: " + (finalUrl || 'N/A'), [
@@ -283,31 +285,25 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
   }
 
   const handleBack = () => {
-    const completed = videoEndedRef.current;
     if (progressSaveTimer.current) clearTimeout(progressSaveTimer.current);
     if (course.id && course.type && latestProgressRef.current > 0 && latestProgressRef.current < 95) {
       saveVideoProgress(course._progressScheduleId, course.id, course.type, latestProgressRef.current, course.parentContentId, course.parentContentType);
     }
-    Alert.alert(
-      "Stage Completion",
-      "Did you finish viewing this content? Mark this stage as completed?",
-      [
-        { text: "No, Not yet", style: "cancel", onPress: onBack },
-        { 
-          text: "Yes, Complete Stage", 
-          onPress: () => {
-            if (onComplete) {
-              onComplete();
-            } else {
-              onBack();
-            }
-          } 
-        }
-      ]
-    );
+    onBack();
   };
 
-  const [docOpened, setDocOpened] = useState(false);
+  const handleCompleteAndNext = () => {
+    if (progressSaveTimer.current) clearTimeout(progressSaveTimer.current);
+    if (isDocument && onStartFollowUp && course.follow_up_type && course.follow_up_id) {
+      onStartFollowUp();
+    } else if (onComplete) {
+      onComplete();
+    } else {
+      onBack();
+    }
+  };
+
+  const [docOpened, setDocOpened] = useState(stageAlreadyCompleted);
   const [docReturned, setDocReturned] = useState(false);
   const appStateRef = useRef(AppState.currentState);
 
@@ -382,7 +378,7 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
         <SafeAreaView style={{ flex: 0, backgroundColor: "#fff" }} />
         <View style={[styles.playerHeader, { backgroundColor: "#fff" }]}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Text style={[styles.backButtonText, { color: "#333" }]}>← Back / Complete Stage</Text>
+            <Text style={[styles.backButtonText, { color: "#333" }]}>← Back</Text>
           </TouchableOpacity>
         </View>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ justifyContent: "center", alignItems: "center", padding: 20, flexGrow: 1 }}>
@@ -415,18 +411,24 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
               </View>
             )}
 
-            {/* Open Document Button */}
-            <TouchableOpacity style={styles.openDocBtn} onPress={openDocumentExternally}>
+            {/* Reopen Document Button — grayed out if stage already completed */}
+            <TouchableOpacity 
+              style={[styles.openDocBtn, stageAlreadyCompleted && { backgroundColor: "#9ca3af" }]}
+              onPress={openDocumentExternally}
+              disabled={stageAlreadyCompleted}
+            >
               <Ionicons name={docOpened ? "eye-outline" : "open-outline"} size={20} color="#fff" />
               <Text style={styles.openDocBtnText}>{docOpened ? "Reopen Document" : "Open Document"}</Text>
             </TouchableOpacity>
 
-            {/* Document Viewed Indicator */}
+            {/* Complete & Move to Next Stage Button */}
             {docOpened && (
-              <View style={styles.viewedIndicator}>
-                <Ionicons name="checkmark-circle" size={16} color="#10b981" />
-                <Text style={styles.viewedText}>Document opened — click Back to complete this stage</Text>
-              </View>
+              <TouchableOpacity style={styles.completeNextBtn} onPress={handleCompleteAndNext}>
+                <Ionicons name="arrow-forward-circle" size={18} color="#fff" />
+                <Text style={styles.completeNextBtnText}>
+                  {course.follow_up_type && course.follow_up_id ? "Complete & Move to Next Stage" : "Complete Stage"}
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
         </ScrollView>
@@ -452,7 +454,7 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
         <SafeAreaView style={{ flex: 0, backgroundColor: "#000" }} />
         <View style={styles.playerHeader}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← {course.follow_up_type ? "Back / Start Follow-up" : "Back / Finish"}</Text>
+            <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
         </View>
         <View style={{ flex: 1 }}>
@@ -482,6 +484,22 @@ const MediaViewer = ({ course, scheduleId, onBack, onStartFollowUp, onComplete }
               {videoProgress >= 95 ? "✓ Completed" : "Watch 95% to complete"}
             </Text>
           </View>
+        )}
+        {showCompleteButton && (
+          <TouchableOpacity style={styles.completeNextBtn} onPress={handleCompleteAndNext}>
+            <Ionicons name="arrow-forward-circle" size={18} color="#fff" />
+            <Text style={styles.completeNextBtnText}>
+              {course.follow_up_type && course.follow_up_id ? "Complete & Move to Next Stage" : "Complete Stage"}
+            </Text>
+          </TouchableOpacity>
+        )}
+        {!isVideoFile && !showCompleteButton && (
+          <TouchableOpacity style={[styles.completeNextBtn, { backgroundColor: "#2563eb" }]} onPress={handleCompleteAndNext}>
+            <Ionicons name="arrow-forward-circle" size={18} color="#fff" />
+            <Text style={styles.completeNextBtnText}>
+              {course.follow_up_type && course.follow_up_id ? "Complete & Move to Next Stage" : "Complete Stage"}
+            </Text>
+          </TouchableOpacity>
         )}
       </View>
     );
@@ -713,7 +731,7 @@ export default function LearnScreen() {
         Alert.alert(content.title, content.description || "No video content available.", [{ text: "OK" }]);
       }
     } else if (content.type === "training") {
-      const url = content.content_url || content.file_url || getMediaUrl(content.file);
+      const url = content.file_url || content.content_url || getMediaUrl(content.file);
       if (hasQuestions) {
         setQuizScheduleContext(selectedSchedule);
         setSelectedQuiz({ ...content, video_url: url, _progressScheduleId: schedId, parentContentId, parentContentType, video_already_completed: quizInProgress });
@@ -779,7 +797,7 @@ export default function LearnScreen() {
         const url = followUp.video_url || followUp.video_file_url || getMediaUrl(followUp.video_file);
         setSelectedVideo({ ...followUp, video_url: url, video_source: followUp.video_source || followUp.videoSource, videoSource: followUp.videoSource, parentContentId, parentContentType, _progressScheduleId: schedId });
       } else if (followUp.type === "training") {
-        const url = followUp.content_url || followUp.file_url || getMediaUrl(followUp.file);
+        const url = followUp.file_url || followUp.content_url || getMediaUrl(followUp.file);
         if (url) {
           setSelectedVideo({ ...followUp, video_url: url, content_url: url, file_url: url, parentContentId, parentContentType, _progressScheduleId: schedId });
         } else {
@@ -837,7 +855,7 @@ export default function LearnScreen() {
     } else if (item.type === "training-schedule") {
       handleOpenSchedule(item);
     } else if (item.type === "training") {
-      const url = item.content_url || item.file_url || getMediaUrl(item.file);
+      const url = item.file_url || item.content_url || getMediaUrl(item.file);
       if (url) {
         setSelectedVideo({ ...item, video_url: url, content_url: url, file_url: url, _progressScheduleId: null });
       } else {
@@ -1600,6 +1618,8 @@ const styles = StyleSheet.create({
   restrictionWarning: { fontSize: 11, color: "#dc2626", marginTop: 6, fontStyle: "italic", textAlign: "center" },
   viewedIndicator: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 10 },
   viewedText: { fontSize: 12, color: "#10b981", fontWeight: "600" },
+  completeNextBtn: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#059669", paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10, width: "100%", justifyContent: "center", marginTop: 10 },
+  completeNextBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   followUpHint: { fontSize: 11, color: "#888", marginTop: 10, textAlign: "center", fontStyle: "italic" },
 
   // Result Card (Dashboard)

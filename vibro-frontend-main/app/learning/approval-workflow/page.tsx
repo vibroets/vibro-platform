@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { CheckCircle, XCircle, Clock, FileText, Search, X, Plus, ChevronDown, ChevronRight, AlertCircle, Edit3, Trash2, UserCheck, Layers, DollarSign } from "lucide-react";
 import axiosInstance from "@/utils/axiosInstance";
 import LearningLayout from "@/components/learning/LearningLayout";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 
 const statusColors: Record<string, string> = { pending: "bg-amber-100 text-amber-700 border-amber-200", approved: "bg-green-100 text-green-700 border-green-200", rejected: "bg-red-100 text-red-700 border-red-200" };
 const typeConfig: Record<string, { label: string; icon: any; color: string; bg: string }> = {
@@ -12,6 +13,8 @@ const typeConfig: Record<string, { label: string; icon: any; color: string; bg: 
 };
 
 export default function ApprovalWorkflowPage() {
+  const { isFullAccess, isViewOnly, isSuperAdmin } = useModuleAccess("learning_training");
+  const canEdit = isFullAccess || isSuperAdmin;
   const [approvals, setApprovals] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
@@ -164,7 +167,11 @@ export default function ApprovalWorkflowPage() {
         <div className="flex gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-56"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><input type="text" placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3A72EC] outline-none" /></div>
           <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none bg-white"><option value="all">All Types</option><option value="training-request">Training</option><option value="budget-request">Budget</option><option value="participant-request">Participant</option></select>
-          <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[#3A72EC] text-white rounded-lg hover:bg-[#2a5dbf] text-sm font-medium whitespace-nowrap"><Plus className="h-4 w-4" /> New Request</button>
+          {canEdit ? (
+            <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[#3A72EC] text-white rounded-lg hover:bg-[#2a5dbf] text-sm font-medium whitespace-nowrap"><Plus className="h-4 w-4" /> New Request</button>
+          ) : isViewOnly ? (
+            <span className="text-xs text-gray-500 italic">View only access</span>
+          ) : null}
         </div>
       </div>
       {loading ? (
@@ -199,9 +206,9 @@ export default function ApprovalWorkflowPage() {
                     {Number(a.amount) > 0 && <div><p className="text-xs font-medium text-gray-500 mb-0.5">Amount</p><p className="text-sm text-gray-700">${a.amount}</p></div>}
                     <div><p className="text-xs font-medium text-gray-500 mb-1">Approval Chain</p><div className="flex flex-wrap gap-2">{(a.approval_chain || []).map((c: any, i: number) => { const hist = (a.approval_history || []).find((h: any) => h.level === c.level); const approver = hist ? hist.by : (c.approver_name || ""); const isApproved = hist && hist.action === "approved"; const isRejected = hist && hist.action === "rejected"; return (<div key={i} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs ${isApproved ? "bg-green-50 border-green-200" : isRejected ? "bg-red-50 border-red-200" : "bg-white border-gray-200"}`}><span className="font-medium text-gray-700">{c.level}</span><span className="text-gray-400">→</span>{isApproved ? <span className="text-green-600 font-medium flex items-center gap-1"><CheckCircle className="h-3 w-3" /> {approver}</span> : isRejected ? <span className="text-red-600 font-medium flex items-center gap-1"><XCircle className="h-3 w-3" /> {approver}</span> : <span className="text-gray-600">{approver || "Unassigned"}</span>}</div>); })}</div></div>
                     <div><p className="text-xs font-medium text-gray-500 mb-1">History</p>{renderHistory(a)}</div>
-                    {a.status === "pending" && a.can_approve && (<div className="flex gap-2 pt-2 border-t border-gray-100"><button onClick={() => handleApprove(a.id)} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm font-medium"><CheckCircle className="h-4 w-4" /> Approve</button><button onClick={() => handleReject(a.id)} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium"><XCircle className="h-4 w-4" /> Reject</button></div>)}
+                    {a.status === "pending" && a.can_approve && canEdit && (<div className="flex gap-2 pt-2 border-t border-gray-100"><button onClick={() => handleApprove(a.id)} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm font-medium"><CheckCircle className="h-4 w-4" /> Approve</button><button onClick={() => handleReject(a.id)} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium"><XCircle className="h-4 w-4" /> Reject</button></div>)}
                     {a.status === "pending" && !a.can_approve && (<div className="pt-2 border-t border-gray-100"><div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg"><Clock className="h-4 w-4" /> <span className="font-medium">Pending with {a.pending_with_department || a.current_level}</span>{a.pending_with_users && a.pending_with_users.length > 0 && <span className="text-gray-500">— {a.pending_with_users.join(", ")}</span>}{a.pending_with_users && a.pending_with_users.length === 0 && <span className="text-red-500">— No users found in this department</span>}</div></div>)}
-                    <button onClick={() => handleEdit(a)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#3A72EC]"><Edit3 className="h-3.5 w-3.5" /> Edit</button>
+                    {canEdit && <button onClick={() => handleEdit(a)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#3A72EC]"><Edit3 className="h-3.5 w-3.5" /> Edit</button>}
                   </div>
                 )}
               </div>

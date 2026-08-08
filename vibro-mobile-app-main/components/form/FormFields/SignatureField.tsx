@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "#FF3B30",
-    fontSize: 12,
+    fontSize: 14,
     marginTop: 5,
   },
   button: {
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   progressText: {
     marginLeft: 8,
     color: "#007AFF",
-    fontSize: 14,
+    fontSize: 16,
   },
 });
 

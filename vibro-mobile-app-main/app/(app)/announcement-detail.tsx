@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, RefreshControl } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import ReactIcon from '@/assets/images/react-logo.png';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/Redux/reducer/rootReducer';
-import { patchAnnouncement } from '@/Redux/reducer/announcements/announcementsSlice';
+import { fetchAnnouncements, patchAnnouncement } from '@/Redux/reducer/announcements/announcementsSlice';
 import { AnnouncementItem, AttachmentItem } from '@/types/announcement';
 import { downloadAnnouncementAttachment } from '@/utility/downloadService';
 import { FileViewer } from '@/utility/fileViewer';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const AnnouncementDetailScreen = () => {
     const { id } = useLocalSearchParams();
@@ -23,12 +24,25 @@ const AnnouncementDetailScreen = () => {
     const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
     const [viewerVisible, setViewerVisible] = useState(false);
     const [viewingFile, setViewingFile] = useState<string | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        try { await dispatch(fetchAnnouncements() as any); } catch {}
+        setRefreshing(false);
+    }, [dispatch]);
 
     if (!announcement) {
         return (
-            <View style={styles.container}>
-                <Text>Announcement not found.</Text>
-            </View>
+            <SafeAreaView style={styles.container} edges={["bottom"]}>
+                <View style={styles.emptyContainer}>
+                    <Icon name="article" size={48} color="#D1D5DB" />
+                    <Text style={styles.emptyText}>Announcement not found.</Text>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                        <Text style={styles.backBtnText}>Go Back</Text>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
         );
     }
     // Handle file download/view
@@ -81,11 +95,10 @@ const formatDate = (dateString: string) => {
     // Handler to simulate local loading for button presses
     const handleLikePress = () => {
         setIsLiking(true);
-        // Simulate network delay for "PATCH"
         setTimeout(() => {
             dispatch(patchAnnouncement({ id: announcement.id, type: "liked", value: !announcement.liked }));
             setIsLiking(false);
-        }, 500);
+        }, 300);
     };
 
     const handleAcknowledgePress = () => {
@@ -93,159 +106,123 @@ const formatDate = (dateString: string) => {
         setTimeout(() => {
             dispatch(patchAnnouncement({ id: announcement.id, type: "acknowledged", value: true }));
             setIsAcking(false);
-        }, 500);
+        }, 300);
     };
 
     return (
-        <View style={styles.container}>
-            {/* Back Button Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Icon name="arrow-back" size={24} color="#111827" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Announcement</Text>
-                <View style={styles.headerSpacer} />
-            </View>
-
-            <ScrollView style={styles.scrollView}>
-            <View style={styles.cardContainer}>
-                {/* Header */}
-                <View style={styles.headerRow}>
-                    <View style={styles.avatarContainer}>
-                        <Image style={styles.avatarImage} source={ReactIcon} />
+        <SafeAreaView style={styles.container} edges={["bottom"]}>
+            <ScrollView
+                style={styles.scrollView}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#2563EB"]} tintColor="#2563EB" />
+                }
+                contentContainerStyle={{ padding: 10, paddingBottom: 20 }}
+            >
+                <View style={styles.card}>
+                    {/* Back + Header in one row */}
+                    <View style={styles.topBar}>
+                        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                            <Icon name="arrow-back" size={18} color="#2563EB" />
+                        </TouchableOpacity>
+                        <View style={styles.headerInfo}>
+                            <View style={styles.avatarContainer}>
+                                <Image style={styles.avatarImage} source={ReactIcon} />
+                            </View>
+                            <View style={styles.headerText}>
+                                <Text style={styles.authorName}>{announcement.created_by_name}</Text>
+                                <View style={styles.metaRow}>
+                                    <Text style={styles.dateText}>{formatDate(announcement.created_on)}</Text>
+                                    <Text style={styles.categoryBadge}>{announcement.announcement_category}</Text>
+                                </View>
+                            </View>
+                        </View>
+                        {announcement.pin_as_important && (
+                            <Icon name="push-pin" size={14} color="#F59E0B" />
+                        )}
                     </View>
-                    <View style={styles.headerTextContainer}>
-                        <Text style={styles.titleText}>{announcement.created_by_name}</Text>
-                        <Text style={styles.dateText}>{formatDate(announcement.created_on)}</Text>
-                    </View>
-                </View>
 
-                {/* Content Body */}
-                <View style={styles.contentContainer}>
-                    <Text style={styles.statusText}>{announcement.title}</Text>
-                    <Text style={styles.greetingText}>{announcement.announcement_category} Update,</Text>
-                    <Text style={styles.descriptionText}>{announcement.announcement_content}</Text>
-                </View>
+                    {/* Title + Content */}
+                    <Text style={styles.title}>{announcement.title}</Text>
+                    <Text style={styles.content}>{announcement.announcement_content}</Text>
 
-                {/* Downloads Section */}
-                {attachments.length > 0 && (
-                    <View style={styles.downloadSection}>
-                        <Text style={styles.downloadTitle}>Attachments ({attachments.length})</Text>
-                        {attachments.map((attachment, index) => (
-                            announcement.prevent_download ? (
+                    {/* Attachments */}
+                    {attachments.length > 0 && (
+                        <View style={styles.attachSection}>
+                            {attachments.map((attachment, index) => (
                                 <TouchableOpacity
                                     key={index}
-                                    style={styles.downloadItem}
+                                    style={styles.attachItem}
                                     onPress={() => handleFileAction(attachment.name)}
                                     disabled={downloadingFile === attachment.name}
                                 >
-                                    <Icon name="attach-file" size={18} color="#94A3B8" />
-                                    <View style={styles.downloadInfo}>
-                                        <Text style={styles.downloadFilename} numberOfLines={1}>
-                                            {attachment.name}
-                                        </Text>
-                                        <Text style={styles.downloadSize}>
-                                            {formatFileSize(attachment.size)}
-                                        </Text>
+                                    <Icon name="attach-file" size={14} color="#94A3B8" />
+                                    <View style={styles.attachInfo}>
+                                        <Text style={styles.attachName} numberOfLines={1}>{attachment.name}</Text>
+                                        <Text style={styles.attachSize}>{formatFileSize(attachment.size)}</Text>
                                     </View>
-                                    <TouchableOpacity
-                                        onPress={() => handleFileAction(attachment.name)}
-                                        disabled={downloadingFile === attachment.name}
-                                        style={styles.downloadButton}
-                                    >
-                                        {downloadingFile === attachment.name ? (
-                                            <ActivityIndicator size="small" color="#2563EB" />
-                                        ) : (
-                                            <Icon name="visibility" size={18} color="#2563EB" />
-                                        )}
-                                    </TouchableOpacity>
+                                    {downloadingFile === attachment.name ? (
+                                        <Text style={styles.progressText}>
+                                            {downloadProgress !== null ? `${Math.round(downloadProgress * 100)}%` : '...'}
+                                        </Text>
+                                    ) : (
+                                        <Icon
+                                            name={announcement.prevent_download ? "visibility" : "download"}
+                                            size={16}
+                                            color="#2563EB"
+                                            style={styles.attachAction}
+                                        />
+                                    )}
                                 </TouchableOpacity>
-                            ) : (
-                                <View key={index} style={styles.downloadItem}>
-                                    <Icon name="attach-file" size={18} color="#2563EB" />
-                                    <View style={styles.downloadInfo}>
-                                        <Text style={styles.downloadFilename} numberOfLines={1}>
-                                            {attachment.name}
-                                        </Text>
-                                        <Text style={styles.downloadSize}>
-                                            {formatFileSize(attachment.size)}
-                                        </Text>
-                                    </View>
-                                    <TouchableOpacity
-                                        onPress={() => handleFileAction(attachment.name)}
-                                        disabled={downloadingFile === attachment.name || (viewerVisible && viewingFile === attachment.name)}
-                                        style={styles.downloadButton}
-                                    >
-                                        {downloadingFile === attachment.name ? (
-                                            <View style={styles.progressContainer}>
-                                                <Text style={styles.progressText}>
-                                                    {downloadProgress !== null ? `${Math.round(downloadProgress * 100)}%` : '...'}
-                                                </Text>
-                                            </View>
-                                        ) : (
-                                            <Icon name="download" size={18} color="#2563EB" />
-                                        )}
-                                    </TouchableOpacity>
-                                </View>
-                            )
-                        ))}
-                    </View>
-                )}
-
-                {/* Action Footer: Likes, Acknowledge */}
-                <View style={styles.actionRow}>
-                    {/* LIKE BUTTON */}
-                    <TouchableOpacity
-                        style={styles.actionItem}
-                        onPress={handleLikePress}
-                    >
-                        {isLiking ? (
-                            <ActivityIndicator size="small" color="#E11D48" />
-                        ) : (
-                            <Icon
-                                name={announcement.liked ? "favorite" : "favorite-border"}
-                                size={22}
-                                color={announcement.liked ? "#E11D48" : "#9CA3AF"}
-                            />
-                        )}
-                        <Text style={[styles.actionText, announcement.liked && { color: '#E11D48', fontWeight: 'bold' }]}>
-                            {announcement.liked ? "Liked" : "Like"}
-                        </Text>
-                    </TouchableOpacity>
-
-                    {/* ACKNOWLEDGE BUTTON (Conditional) */}
-                    {announcement.request_acknowledge && (
-                        <TouchableOpacity
-                            style={[
-                                styles.acknowledgeButton,
-                                announcement.acknowledged ? styles.ackActive : styles.ackInactive
-                            ]}
-                            onPress={handleAcknowledgePress}
-                            disabled={announcement.acknowledged}
-                        >
-                            {isAcking ? (
-                                <ActivityIndicator size="small" color="white" />
-                            ) : (
-                                <>
-                                    <Icon
-                                        name={announcement.acknowledged ? "check" : "thumb-up"}
-                                        size={16}
-                                        color={announcement.acknowledged ? "white" : "#059669"}
-                                    />
-                                    <Text style={[
-                                        styles.ackText,
-                                        announcement.acknowledged ? { color: 'white' } : { color: '#059669' }
-                                    ]}>
-                                        {announcement.acknowledged ? "Acknowledged" : "Acknowledge"}
-                                    </Text>
-                                </>
-                            )}
-                        </TouchableOpacity>
+                            ))}
+                        </View>
                     )}
-                </View>
-            </View>
 
-            {/* File Viewer Modal for protected files */}
+                    {/* Actions: right-aligned, no divider */}
+                    <View style={styles.actionRow}>
+                        <TouchableOpacity style={styles.likeBtn} onPress={handleLikePress}>
+                            {isLiking ? (
+                                <ActivityIndicator size="small" color="#E11D48" />
+                            ) : (
+                                <Icon
+                                    name={announcement.liked ? "favorite" : "favorite-border"}
+                                    size={18}
+                                    color={announcement.liked ? "#E11D48" : "#9CA3AF"}
+                                />
+                            )}
+                            <Text style={[styles.likeText, announcement.liked && { color: '#E11D48' }]}>
+                                {announcement.liked ? "Liked" : "Like"}
+                            </Text>
+                        </TouchableOpacity>
+
+                        {announcement.request_acknowledge && (
+                            <TouchableOpacity
+                                style={[styles.ackBtn, announcement.acknowledged ? styles.ackActive : styles.ackInactive]}
+                                onPress={handleAcknowledgePress}
+                                disabled={announcement.acknowledged}
+                            >
+                                {isAcking ? (
+                                    <ActivityIndicator size="small" color="white" />
+                                ) : (
+                                    <>
+                                        <Icon
+                                            name={announcement.acknowledged ? "check" : "thumb-up"}
+                                            size={12}
+                                            color={announcement.acknowledged ? "white" : "#059669"}
+                                        />
+                                        <Text style={[
+                                            styles.ackText,
+                                            announcement.acknowledged ? { color: 'white' } : { color: '#059669' }
+                                        ]}>
+                                            {announcement.acknowledged ? "Acknowledged" : "Acknowledge"}
+                                        </Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
+            </ScrollView>
+
             {viewerVisible && viewingFile && (
                 <FileViewer
                     visible={viewerVisible}
@@ -255,93 +232,50 @@ const formatDate = (dateString: string) => {
                     }}
                     announcementId={announcement.id}
                     filename={viewingFile}
-                    allowDownload={false} // Protected files can't be downloaded
+                    allowDownload={false}
                 />
             )}
-            </ScrollView>
-        </View>
+        </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F9FAFB',
+    container: { flex: 1, backgroundColor: '#F9FAFB' },
+    scrollView: { flex: 1 },
+    card: {
+        backgroundColor: '#ffffff', borderRadius: 10, padding: 12,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3,
+        elevation: 2, borderWidth: 1, borderColor: '#f0f0f0',
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: '#ffffff',
-        borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
-    },
-    backButton: {
-        padding: 4,
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#111827',
-        marginLeft: 8,
-        flex: 1,
-    },
-    headerSpacer: {
-        width: 32,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    cardContainer: {
-        backgroundColor: '#ffffff',
-        borderRadius: 16,
-        padding: 16,
-        margin: 16,
-        marginBottom: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 4,
-        borderWidth: 1,
-        borderColor: '#f0f0f0',
-    },
-    headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    avatarContainer: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#f3f4f6', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#e5e7eb' },
-    avatarImage: { width: 38, height: 38, borderRadius: 19 },
-    headerTextContainer: { marginLeft: 12 },
-    titleText: { color: '#111827', fontSize: 15, fontWeight: '700' },
-    dateText: { color: '#6B7280', fontSize: 12, marginTop: 2 },
-    contentContainer: { marginTop: 4 },
-    statusText: { color: '#1F2937', fontSize: 16, fontWeight: '700', lineHeight: 22, marginBottom: 6 },
-    greetingText: { color: '#4B5563', fontSize: 14, marginBottom: 6, fontWeight: '600' },
-    descriptionText: { color: '#6B7280', fontSize: 14, lineHeight: 22, marginBottom: 16 },
-    actionRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F3F4F6', justifyContent: 'space-between' },
-    actionItem: { flexDirection: 'row', alignItems: 'center', padding: 4 },
-    actionText: { color: '#6B7280', fontSize: 13, marginLeft: 6, fontWeight: '500' },
-    downloadSection: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
-    downloadTitle: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 },
-    downloadItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#F8FAFC', borderRadius: 8, marginBottom: 4 },
-    downloadInfo: { flex: 1, marginHorizontal: 8 },
-    downloadFilename: { fontSize: 14, color: '#1F2937', fontWeight: '500' },
-    downloadSize: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-    downloadButton: { padding: 4 },
-    disabledDownload: { padding: 4, justifyContent: 'center', alignItems: 'center' },
-    progressContainer: {
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    progressText: {
-        fontSize: 12,
-        color: '#2563EB',
-        fontWeight: '500',
-    },
-
-    acknowledgeButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+    topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+    backBtn: { padding: 4, marginRight: 8 },
+    headerInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    avatarContainer: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#f3f4f6', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#e5e7eb' },
+    avatarImage: { width: 24, height: 24, borderRadius: 12 },
+    headerText: { marginLeft: 6, flex: 1 },
+    authorName: { color: '#111827', fontSize: 13, fontWeight: '700' },
+    metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 1, gap: 4 },
+    dateText: { color: '#6B7280', fontSize: 10 },
+    categoryBadge: { color: '#2563EB', fontSize: 10, fontWeight: '600', backgroundColor: '#EFF6FF', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, overflow: 'hidden' },
+    title: { color: '#1F2937', fontSize: 14, fontWeight: '700', lineHeight: 18, marginBottom: 4 },
+    content: { color: '#6B7280', fontSize: 12, lineHeight: 17, marginBottom: 8 },
+    attachSection: { marginTop: 4, marginBottom: 4 },
+    attachItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 8, backgroundColor: '#F8FAFC', borderRadius: 6, marginBottom: 4 },
+    attachInfo: { flex: 1, marginLeft: 6 },
+    attachName: { fontSize: 12, color: '#1F2937', fontWeight: '500' },
+    attachSize: { fontSize: 10, color: '#9CA3AF', marginTop: 1 },
+    attachAction: { padding: 2 },
+    progressText: { fontSize: 11, color: '#2563EB', fontWeight: '500' },
+    actionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 12, marginTop: 8 },
+    likeBtn: { flexDirection: 'row', alignItems: 'center' },
+    likeText: { color: '#6B7280', fontSize: 11, marginLeft: 4, fontWeight: '500' },
+    ackBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
     ackInactive: { backgroundColor: '#ECFDF5', borderColor: '#059669' },
     ackActive: { backgroundColor: '#059669', borderColor: '#059669' },
-    ackText: { fontSize: 12, fontWeight: '600', marginLeft: 6 },
+    ackText: { fontSize: 11, fontWeight: '600', marginLeft: 4 },
+    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+    emptyText: { fontSize: 16, color: '#6B7280', marginTop: 12, marginBottom: 16 },
+    backBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });
 
 export default AnnouncementDetailScreen;

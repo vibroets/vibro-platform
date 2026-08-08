@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF0F0",
   },
   formulaText: {
-    fontSize: 12,
+    fontSize: 14,
     color: "#666",
     marginTop: 4,
   },

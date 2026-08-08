@@ -171,9 +171,9 @@ const styles = StyleSheet.create({
   stageContainer: {
     flexDirection: "column",
     alignItems: "center",
-    marginRight: 24,
-    width: 90,
-    minWidth: 80, // Ensure minimum width for touch targets
+    marginRight: 16,
+    width: 70,
+    minWidth: 60, // Ensure minimum width for touch targets
     position: "relative",
   },
   stageMenuButton: {
@@ -190,15 +190,15 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   stageCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: "#E0E0E0",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 6,
-    minWidth: 28, // Ensure consistent size
-    minHeight: 28, // Ensure consistent size
+    marginBottom: 4,
+    minWidth: 24,
+    minHeight: 24,
   },
   currentStageCircle: {
     backgroundColor: "#007AFF",
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   },
   stageNumber: {
     color: "#757575",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "500",
   },
   currentStageNumber: {
@@ -221,11 +221,11 @@ const styles = StyleSheet.create({
     color: "#BDBDBD",
   },
   stageName: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#757575",
     textAlign: "center",
     width: "100%",
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
   },
   currentStageName: {
     color: "#007AFF",
@@ -239,9 +239,9 @@ const styles = StyleSheet.create({
   },
   connectorLine: {
     position: "absolute",
-    top: 14,
-    right: -26,
-    width: 28,
+    top: 12,
+    right: -18,
+    width: 20,
     height: 2,
     backgroundColor: "#E0E0E0",
   },

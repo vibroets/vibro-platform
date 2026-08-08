@@ -1139,31 +1139,63 @@ class PlannerCompleteView(APIView):
     def extract_followup_tasks(self, planner_assignment, form_submission, user):
         """
         Extract follow-up tasks from LogicFollowUp in the form and create Task objects.
-        Mirrors the logic used by the form submission flow in form/views.py.
+        Mirrors the logic used by TriggerFollowupTasksView._create_web_configured_tasks.
+        Handles both assign_form and task_close_questions configurations.
         """
-        from form.models import LogicFollowUp, Logic
+        from form.models import LogicFollowUp, Logic, Answer, TaskCloseQuestion
         from django.db.models import Q as QObj
 
         main_form = planner_assignment.form
-        submission_date = form_submission.submission_initiated_on or timezone.now()
+        submission_date = form_submission.completed_on or form_submission.submission_initiated_on or timezone.now()
 
-        # Get all LogicFollowUp for this form that have followup_toggle enabled
-        # and an assigned form (same query pattern as form submission flow)
+        # Get all answers for this submission to check logic conditions
+        submission_answers = Answer.objects.filter(
+            submission=form_submission,
+            organization=planner_assignment.organization
+        ).select_related('question')
+        answer_dict = {answer.question_id: answer.answer for answer in submission_answers}
+
+        # Get LogicFollowUp with followup_toggle=True that have either assign_form or task_close_questions
         logic_followups = LogicFollowUp.objects.filter(
             QObj(form_id=main_form.id) | QObj(audit_group__form_id=main_form.id),
             followup_toggle=True,
-            assign_form__isnull=False
-        ).select_related('logic', 'assign_form', 'question')
+        ).filter(
+            QObj(assign_form__isnull=False) |
+            QObj(task_close_questions__isnull=False)
+        ).distinct().select_related('logic', 'assign_form', 'question', 'audit_group')
 
         tasks_created = 0
 
         with transaction.atomic():
             for followup in logic_followups:
                 try:
+                    # Check logic condition before creating task
+                    logic = followup.logic
+                    if logic:
+                        user_answer = answer_dict.get(logic.question_id)
+                        if user_answer is None:
+                            continue
+                        user_answer_str = str(user_answer).strip()
+                        # Handle option ID to text conversion
+                        if user_answer_str.isdigit():
+                            try:
+                                from form.models import Option
+                                option = Option.objects.get(id=int(user_answer_str), question_id=logic.question_id)
+                                user_answer_str = option.option.strip()
+                            except Option.DoesNotExist:
+                                pass
+                        logic_value_str = str(logic.logic_value).strip() if logic.logic_value else ''
+                        if logic.logic_type == 'is':
+                            if user_answer_str != logic_value_str:
+                                continue
+                        elif logic.logic_type == 'is_not':
+                            if user_answer_str == logic_value_str:
+                                continue
+
                     assigned_form = followup.assign_form
                     deadline_days = getattr(followup, 'deadline', 7) or 7
 
-                    # Check for duplicate task for this submission/question/form combo
+                    # Check for duplicate task
                     existing_task = Task.objects.filter(
                         followup_task_form_id=main_form,
                         organization=planner_assignment.organization,
@@ -1175,16 +1207,14 @@ class PlannerCompleteView(APIView):
                     if existing_task:
                         continue
 
-                    # Create task from follow-up
-                    # form = the assigned follow-up form (what the assignee needs to fill)
-                    # followup_task_form_id = the main/planner form that triggered it
-                    # follow_task_sub_question = the question that triggered the follow-up
+                    # Create task
                     task = Task.objects.create(
                         task_name=followup.title or 'Follow-up Task',
                         description=followup.description or '',
                         form=assigned_form,
                         followup_task_form_id=main_form,
                         follow_task_sub_question=followup.question,
+                        form_submission=form_submission,
                         organization=planner_assignment.organization,
                         start_date=submission_date,
                         end_date=submission_date + timedelta(days=deadline_days),
@@ -1192,13 +1222,23 @@ class PlannerCompleteView(APIView):
                         status='not_started'
                     )
 
-                    # Create audit log with the same action name as form submission flow
-                    # so the serializer's _get_main_form_submission can find it
+                    # Create audit log
                     TaskAuditLog.objects.create(
                         task=task,
                         task_action='Followup_Created',
                         action_by=user
                     )
+
+                    # Link task close questions
+                    has_task_close_questions = followup.task_close_questions.exists()
+                    if has_task_close_questions:
+                        for question in followup.task_close_questions.all():
+                            TaskCloseQuestion.objects.create(
+                                task=task,
+                                question=question,
+                                created_by=user,
+                                organization=planner_assignment.organization
+                            )
 
                     # Assign task based on follow-up configuration
                     self.assign_followup_task(task, followup, planner_assignment, user)
@@ -1224,10 +1264,8 @@ class PlannerCompleteView(APIView):
             TaskAssignee.objects.create(
                 task=task,
                 assigned_user=user,
-                assigned_by=user
+                assigned_date_time=timezone.now()
             )
-            task.status = 'assigned'
-            task.save()
         
         elif assign_to == 'user':
             # Assign to specific user
@@ -1235,10 +1273,8 @@ class PlannerCompleteView(APIView):
                 TaskAssignee.objects.create(
                     task=task,
                     assigned_user=followup.user,
-                    assigned_by=user
+                    assigned_date_time=timezone.now()
                 )
-                task.status = 'assigned'
-                task.save()
             
             # Also assign to users in assign_user_ids
             for user_id in followup.assign_user_ids:
@@ -1247,9 +1283,8 @@ class PlannerCompleteView(APIView):
                     TaskAssignee.objects.create(
                         task=task,
                         assigned_user=assign_user,
-                        assigned_by=user
+                        assigned_date_time=timezone.now()
                     )
-                    task.status = 'assigned'
                 except CustomUser.DoesNotExist:
                     continue
         
@@ -1259,10 +1294,8 @@ class PlannerCompleteView(APIView):
                 TaskAssignee.objects.create(
                     task=task,
                     assigned_group=followup.group,
-                    assigned_by=user
+                    assigned_date_time=timezone.now()
                 )
-                task.status = 'assigned'
-                task.save()
             
             # Also assign to groups in assign_group_ids
             for group_id in followup.assign_group_ids:
@@ -1271,9 +1304,8 @@ class PlannerCompleteView(APIView):
                     TaskAssignee.objects.create(
                         task=task,
                         assigned_group=assign_group,
-                        assigned_by=user
+                        assigned_date_time=timezone.now()
                     )
-                    task.status = 'assigned'
                 except Groups.DoesNotExist:
                     continue
         
@@ -1283,10 +1315,8 @@ class PlannerCompleteView(APIView):
                 TaskAssignee.objects.create(
                     task=task,
                     assigned_user=followup.leader,
-                    assigned_by=user
+                    assigned_date_time=timezone.now()
                 )
-                task.status = 'assigned'
-                task.save()
             
             # Also assign to leaders in assign_leader_ids
             for leader_id in followup.assign_leader_ids:
@@ -1295,9 +1325,8 @@ class PlannerCompleteView(APIView):
                     TaskAssignee.objects.create(
                         task=task,
                         assigned_user=assign_leader,
-                        assigned_by=user
+                        assigned_date_time=timezone.now()
                     )
-                    task.status = 'assigned'
                 except CustomUser.DoesNotExist:
                     continue
 
@@ -2630,7 +2659,7 @@ class CollaborativeReviewView(APIView):
 
             if action == 'approve_all':
                 groups = collab.group_delegations.filter(
-                    status=GroupDelegationStatus.SUBMITTED,
+                    status__in=[GroupDelegationStatus.SUBMITTED, GroupDelegationStatus.IN_PROGRESS],
                     organization=request.user.organization
                 )
             else:
@@ -2644,7 +2673,7 @@ class CollaborativeReviewView(APIView):
             updated = []
             for group in groups:
                 if action == 'approve':
-                    if group.status != GroupDelegationStatus.SUBMITTED:
+                    if group.status not in [GroupDelegationStatus.SUBMITTED, GroupDelegationStatus.IN_PROGRESS]:
                         updated.append({'id': group.id, 'error': f'Group is in {group.status} status, cannot approve'})
                         continue
                     group.status = GroupDelegationStatus.REVIEWED
@@ -2653,7 +2682,7 @@ class CollaborativeReviewView(APIView):
                     updated.append({'id': group.id, 'status': 'reviewed'})
 
                 elif action == 'reject':
-                    if group.status not in [GroupDelegationStatus.SUBMITTED, GroupDelegationStatus.REVIEWED]:
+                    if group.status not in [GroupDelegationStatus.SUBMITTED, GroupDelegationStatus.REVIEWED, GroupDelegationStatus.IN_PROGRESS]:
                         updated.append({'id': group.id, 'error': f'Group is in {group.status} status, cannot reject'})
                         continue
                     group.status = GroupDelegationStatus.REJECTED

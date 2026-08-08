@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VibroETS Brochure</title>
+  <style>
+    /* Reset & Page Setup */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #e6e9ef;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 20px;
+      font-family: 'Open Sans', 'Segoe UI', sans-serif;
+    }
+
+    /* Each page represents one side of A4 landscape */
+    .page {
+      width: 297mm;  /* A4 landscape width */
+      height: 210mm; /* A4 landscape height */
+      background: #ffffff;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      margin-bottom: 40px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr; /* 3 equal panels */
+      position: relative;
+      overflow: hidden;
+      border-radius: 4px;
+      page-break-after: always; /* when printing */
+    }
+
+    /* Panel styling */
+    .panel {
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #d0d7de;
+      background: #fafcff;
+      position: relative;
+    }
+
+    /* Fold guide lines (dashed) – they appear only on screen, not on print */
+    .fold-guide {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: repeating-linear-gradient(
+        to bottom,
+        #aaa,
+        #aaa 6px,
+        transparent 6px,
+        transparent 12px
+      );
+      opacity: 0.35;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .fold-guide.left-guide {
+      left: 33.333%;
+    }
+    .fold-guide.right-guide {
+      left: 66.666%;
+    }
+
+    /* ---- Typography & Colors ---- */
+    h1, h2, h3, .headline {
+      font-family: 'Montserrat', 'Segoe UI', sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .primary-color { color: #0F172A; }
+    .secondary-color { color: #0284C7; }
+    .accent-color { color: #10B981; }
+
+    .panel h2 {
+      font-size: 1.1rem;
+      color: #0F172A;
+      border-bottom: 3px solid #0284C7;
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+    .panel h3 {
+      font-size: 0.95rem;
+      color: #0284C7;
+      margin: 8px 0 4px;
+    }
+    .panel p, .panel li {
+      font-size: 0.75rem;
+      line-height: 1.4;
+      color: #1e293b;
+      margin-bottom: 4px;
+    }
+    .panel ul {
+      padding-left: 16px;
+      list-style-type: disc;
+    }
+    .panel ul li {
+      margin-bottom: 2px;
+    }
+
+    /* Front Cover specific */
+    .front-cover {
+      background: linear-gradient(145deg, #0F172A 0%, #1e293b 100%);
+      color: #f8fafc;
+      justify-content: center;
+      align-items: flex-start;
+    }
+    .front-cover h1 {
+      font-size: 2.6rem;
+      color: #ffffff;
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+    }
+    .front-cover .tagline {
+      font-size: 1.1rem;
+      color: #94a3b8;
+      font-weight: 400;
+      margin-bottom: 16px;
+    }
+    .front-cover .highlight {
+      background: #0284C7;
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 1.2rem;
+      display: inline-block;
+      margin: 10px 0 8px;
+    }
+    .front-cover ul {
+      list-style: none;
+      padding: 0;
+      margin-top: 8px;
+    }
+    .front-cover ul li {
+      color: #e2e8f0;
+      font-size: 0.8rem;
+      margin-bottom: 4px;
+      padding-left: 20px;
+      position: relative;
+    }
+    .front-cover ul li::before {
+      content: "✓";
+      color: #10B981;
+      position: absolute;
+      left: 0;
+      font-weight: 700;
+    }
+
+    /* Back Cover */
+    .back-cover {
+      background: #f1f5f9;
+      justify-content: center;
+    }
+    .back-cover h2 {
+      border-bottom-color: #10B981;
+    }
+    .value-item {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: flex-start;
+    }
+    .value-icon {
+      font-size: 1.4rem;
+      min-width: 28px;
+      text-align: center;
+    }
+    .value-text {
+      font-size: 0.75rem;
+      line-height: 1.3;
+    }
+    .value-text strong {
+      color: #0F172A;
+    }
+    .contact-box {
+      background: #ffffff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      margin-top: 10px;
+      font-size: 0.75rem;
+      border-left: 4px solid #0284C7;
+    }
+    .contact-box strong {
+      color: #0F172A;
+    }
+
+    /* Inside Flap (Panel 1) */
+    .inside-flap {
+      background: #fafcff;
+    }
+    .inside-flap .num {
+      font-weight: 700;
+      color: #0284C7;
+      font-size: 0.9rem;
+      margin-right: 4px;
+    }
+
+    /* Inside panels (Side 2) */
+    .inner-panel {
+      background: #ffffff;
+    }
+    .inner-panel .module {
+      margin-bottom: 8px;
+      border-bottom: 1px solid #e9edf4;
+      padding-bottom: 6px;
+    }
+    .inner-panel .module:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+    .inner-panel .module-title {
+      font-weight: 700;
+      color: #0F172A;
+      font-size: 0.8rem;
+      display: inline-block;
+      background: #e9edf4;
+      padding: 0 8px;
+      border-radius: 12px;
+    }
+    .inner-panel .key-feature {
+      font-weight: 600;
+      color: #0284C7;
+      font-size: 0.7rem;
+      margin-top: 2px;
+    }
+    .inner-panel .problem-solved {
+      font-size: 0.7rem;
+      color: #475569;
+    }
+    .impact-table {
+      margin-top: 10px;
+      font-size: 0.65rem;
+      border-collapse: collapse;
+      width: 100%;
+    }
+    .impact-table td, .impact-table th {
+      border: 1px solid #cbd5e1;
+      padding: 4px 6px;
+      text-align: left;
+      background: #f8fafc;
+    }
+    .impact-table th {
+      background: #e2e8f0;
+      font-weight: 700;
+      color: #0F172A;
+    }
+
+    /* Hide fold guides when printing */
+    @media print {
+      .fold-guide {
+        display: none;
+      }
+      body {
+        background: white;
+        padding: 0;
+        margin: 0;
+      }
+      .page {
+        box-shadow: none;
+        margin: 0 auto;
+        border-radius: 0;
+        border: none;
+        width: 100%;
+        height: auto; /* let content define height */
+        page-break-after: always;
+      }
+      .panel {
+        border: 1px solid #ccc; /* keep subtle border for cutting */
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== SIDE 1 (OUTSIDE) ==================== -->
+  <div class="page" id="side1">
+    <!-- Fold guides (screen only) -->
+    <div class="fold-guide left-guide"></div>
+    <div class="fold-guide right-guide"></div>
+
+    <!-- Panel 1: Inside Flap (Left) -->
+    <div class="panel inside-flap">
+      <h2>Why VibroETS Is Essential</h2>
+      <p style="font-weight:600; color:#0F172A; font-size:0.8rem;">Stop losing time and start tracking success.</p>
+      <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+        <div style="margin-bottom:12px;">
+          <div style="font-weight:700; color:#0284C7;">1. Single Platform, Zero Fragmentation</div>
+          <p>Consolidate WhatsApp, Excel, Email, and paper forms into one secure, unified workflow.</p>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-weight:700; color:#0284C7;">2. Audit-Ready Compliance</div>
+          <p>Every action is logged with user IDs, timestamps, and context—ready for ISO and certification audits instantly.</p>
+        </div>
+        <div>
+          <div style="font-weight:700; color:#0284C7;">3. Absolute Accountability</div>
+          <p>Tasks don't disappear and NCs don't stay open. Every action item has an assigned owner, clear deadline, and real-time status.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel 2: Back Cover (Middle) -->
+    <div class="panel back-cover">
+      <h2 style="font-size:1.2rem; border-bottom-color:#10B981;">Why Organizations Choose VibroETS</h2>
+      <p style="font-weight:600; color:#0F172A; font-size:0.85rem; margin-bottom:10px;">The Digital Backbone of Modern Operations.</p>
+      <div class="value-item">
+        <div class="value-icon">💰</div>
+        <div class="value-text"><strong>Cost Savings</strong> – Zero paper printing, faster issue detection, and consolidation of multiple software tools into one.</div>
+      </div>
+      <div class="value-item">
+        <div class="value-icon">🏢</div>
+        <div class="value-text"><strong>Multi‑Location Scalability</strong> – Manage all sites effortlessly. Location leaders focus on their site; admins oversee the entire organization.</div>
+      </div>
+      <div class="value-item">
+        <div class="value-icon">📊</div>
+        <div class="value-text"><strong>Data‑Driven Decisions</strong> – Real numbers, instant compliance rates, and live operational KPIs replace gut‑feel management.</div>
+      </div>
+      <div class="contact-box">
+        <strong style="font-size:0.85rem;">Ready to Streamline Your Operations?</strong><br>
+        Web: <strong>www.vibroets.com</strong><br>
+        Email: support@vibroets.com<br>
+        Phone: +1 (800) 123-4567<br>
+        <span style="display:inline-block; margin-top:4px; background:#0F172A; color:#fff; padding:2px 10px; border-radius:12px; font-size:0.65rem;">App: iOS & Android</span>
+      </div>
+    </div>
+
+    <!-- Panel 3: Front Cover (Right) -->
+    <div class="panel front-cover">
+      <h1>VibroETS</h1>
+      <div class="tagline">Transforming Operational Excellence</div>
+      <p style="font-size:0.9rem; color:#cbd5e1; margin-bottom:6px;">From Paper & WhatsApp Chaos to a Structured, Auditable, Data‑Driven System.</p>
+      <div class="highlight">Nothing falls through the cracks.</div>
+      <p style="font-weight:600; font-size:0.9rem; color:#f8fafc; margin:6px 0 2px;">One Platform. One Source of Truth.</p>
+      <ul>
+        <li>Replace scattered Excel sheets, paper checklists, and lost messaging threads with a single unified platform.</li>
+        <li><strong>Mobile + Web Accessibility:</strong> Seamless for field workers and managers alike.</li>
+        <li><strong>Audit‑Ready Compliance:</strong> ISO 9001, 14001, 45001 ready at any moment.</li>
+        <li><strong>Enterprise Security:</strong> Strict role‑based access and data isolation.</li>
+      </ul>
+      <div style="margin-top:auto; align-self:flex-end; font-size:0.65rem; opacity:0.6;">VibroETS © 2026</div>
+    </div>
+  </div>
+
+  <!-- ==================== SIDE 2 (INSIDE) ==================== -->
+  <div class="page" id="side2">
+    <!-- Fold guides -->
+    <div class="fold-guide left-guide"></div>
+    <div class="fold-guide right-guide"></div>
+
+    <!-- Panel 4: Inside Left (Modules 1,2,3) -->
+    <div class="panel inner-panel">
+      <h2>End the Data Chaos.</h2>
+      <p style="font-weight:600; color:#0F172A; font-size:0.8rem; margin-bottom:6px;">See everything. Manage everything.</p>
+
+      <div class="module">
+        <div class="module-title">1. Dashboard</div>
+        <div class="key-feature">Unified analytics overview with KPIs, charts, and summaries. Real‑time visibility into operational metrics with role‑based views.</div>
+        <div class="problem-solved">✅ Replaces scattered Excel trackers with one screen. Leaders gain instant visibility into compliance and trends without chasing teams.</div>
+      </div>
+      <div class="module">
+        <div class="module-title">2. Announcements</div>
+        <div class="key-feature">Broadcast org‑wide notices with categories, attachments, acknowledgements, and targeted groups.</div>
+        <div class="problem-solved">✅ Replaces email/WhatsApp blasts that get lost. Provides a complete audit trail proving who viewed and acknowledged notices.</div>
+      </div>
+      <div class="module">
+        <div class="module-title">3. Forms</div>
+        <div class="key-feature">Dynamic forms with conditional logic, image attachments, geo‑tagging, digital signatures, and auto‑generate NC tasks.</div>
+        <div class="problem-solved">✅ Replaces paper checklists, eliminates transcription errors, auto‑tracks NCs to closure, and digitizes historical data.</div>
+      </div>
+    </div>
+
+    <!-- Panel 5: Inside Center (Modules 4,5,6) -->
+    <div class="panel inner-panel">
+      <h2>Ensure Every Task is Tracked.</h2>
+      <p style="font-weight:600; color:#0F172A; font-size:0.8rem; margin-bottom:6px;">From assignment to closure.</p>
+
+      <div class="module">
+        <div class="module-title">4. Tasks</div>
+        <div class="key-feature">Assignment with deadlines, priorities, status, automated reminders, and filtering. Auto‑generates from form submissions.</div>
+        <div class="problem-solved">✅ Single source of truth for task management. Ensures full accountability, prevents tasks from falling through cracks, and makes closure rates measurable.</div>
+      </div>
+      <div class="module">
+        <div class="module-title">5. Polls</div>
+        <div class="key-feature">Single/multiple choice polls with configurable durations, targeting, real‑time results, and anonymous/named voting.</div>
+        <div class="problem-solved">✅ Replaces ad‑hoc surveys that yield low response rates. Delivers instant, auditable pulse checks on employee sentiment and operational choices.</div>
+      </div>
+      <div class="module">
+        <div class="module-title">6. Learning &amp; Training (L&amp;T)</div>
+        <div class="key-feature">Training calendar, trainer &amp; venue management, enrollment with waitlists, multi‑level approvals, and L&amp;D analytics.</div>
+        <div class="problem-solved">✅ Eliminates fragmented tracking in Google Sheets and double‑booking. Guarantees training compliance with audit‑ready records for ISO certifications.</div>
+      </div>
+    </div>
+
+    <!-- Panel 6: Inside Right (Modules 7,8 + Impact Table) -->
+    <div class="panel inner-panel">
+      <h2>Align Your Workforce.</h2>
+      <p style="font-weight:600; color:#0F172A; font-size:0.8rem; margin-bottom:6px;">Plan, Execute, and Secure.</p>
+
+      <div class="module">
+        <div class="module-title">7. Planner</div>
+        <div class="key-feature">Calendar‑based operational planning for audits, inspections, and recurring activities with planned vs. completed comparison.</div>
+        <div class="problem-solved">✅ Replaces unshared manual calendars. Ensures audits happen on schedule and allows teams to prepare well in advance.</div>
+      </div>
+      <div class="module">
+        <div class="module-title">8. Chat (Org‑Specific)</div>
+        <div class="key-feature">Real‑time messaging with WebSocket, group/direct chats, media sharing, push notifications, and support chatbot.</div>
+        <div class="problem-solved">✅ Keeps professional communication within the organization instead of personal WhatsApp. Conversations remain company property when employees depart.</div>
+      </div>
+
+      <div style="margin-top:4px;">
+        <h3 style="font-size:0.8rem; color:#0F172A; border-bottom:2px solid #10B981; padding-bottom:2px; margin-bottom:4px;">Impact Overview</h3>
+        <table class="impact-table">
+          <thead>
+            <tr><th>Module</th><th>Core Elimination</th><th>Primary Value</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Forms &amp; Tasks</td><td>Paper &amp; Manual Entry</td><td>Instant NC Tracking &amp; Closure</td></tr>
+            <tr><td>Announcements &amp; Chat</td><td>Unofficial WhatsApp Groups</td><td>Auditable, Secure Communication</td></tr>
+            <tr><td>L&amp;T &amp; Planner</td><td>Excel Calendar Chaos</td><td>ISO Audit Readiness &amp; Compliance</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px; color:#475569; font-size:0.9rem; text-align:center; max-width:600px;">
+    <strong>📄 How to download &amp; print:</strong><br>
+    1. Save this page as HTML (or use “Save as” in your browser).<br>
+    2. Open the file and press <kbd>Ctrl+P</kbd> (or <kbd>Cmd+P</kbd>).<br>
+    3. Choose <strong>“Save as PDF”</strong>, set <strong>Landscape</strong>, and <strong>Margins: None</strong>.<br>
+    4. For double‑sided, select <strong>“Print on both sides”</strong> and <strong>“Flip on short edge”</strong>.<br>
+    <span style="background:#e9edf4; padding:2px 10px; border-radius:12px; display:inline-block; margin-top:4px;">The dashed lines are folding guides – they won't appear in the final print.</span>
+  </div>
+
+</body>
+</html>

@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useSelector } from 'react-redux';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { extractLocationSearchText, hasLocationQuestion } from './tabs-todo/locationFilterUtils';
 
 interface ActivityLog {
@@ -1021,6 +1022,7 @@ export default function SentTaskSummaryScreen() {
   const isReopenDisabled = reopeningTask || taskDetails.status !== 'completed';
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#f8f9fa' }} edges={['top']}>
     <ScrollView style={styles.container}>
       <View style={styles.backButtonContainer}>
         <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
@@ -1331,6 +1333,7 @@ export default function SentTaskSummaryScreen() {
         </View>
       </Modal>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

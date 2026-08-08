@@ -66,6 +66,8 @@ INSTALLED_APPS = [
     'planner',
     'poll',
     'chat',
+    'enquiry',
+    'guide',
 ]
 
 MIDDLEWARE = [
@@ -147,7 +149,15 @@ if REDIS_HOST:
         'default': {
             'BACKEND': 'channels_redis.core.RedisChannelLayer',
             'CONFIG': {
-                "hosts": [(REDIS_HOST, int(os.getenv("REDIS_PORT", "6379")))],
+                "hosts": [{
+                    "host": REDIS_HOST,
+                    "port": int(os.getenv("REDIS_PORT", "6379")),
+                    "socket_timeout": 60,
+                    "socket_connect_timeout": 10,
+                    "socket_keepalive": True,
+                    "health_check_interval": 30,
+                }],
+                "capacity": 1000,
             },
         },
     }
@@ -209,6 +219,9 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend',
     )
 }
+
+# Trust X-Forwarded-Proto from nginx so build_absolute_uri() generates https:// URLs
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=7),

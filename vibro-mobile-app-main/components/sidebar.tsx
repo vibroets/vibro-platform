@@ -2,7 +2,6 @@ import { RootState } from "@/Redux/reducer/rootReducer";
 import { DrawerContentComponentProps } from "@react-navigation/drawer";
 import React from "react";
 import {
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
   BellIcon,
   BookmarkIcon,
@@ -61,7 +61,7 @@ const Sidebar = (props: DrawerContentComponentProps) => {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar backgroundColor="#6b46c1" barStyle="light-content" />
 
       {/* Header Section */}

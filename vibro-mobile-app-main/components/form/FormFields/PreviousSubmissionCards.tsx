@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   chipText: {
-    fontSize: 10,
+    fontSize: 12,
     color: "#6B7280",
     fontWeight: "500",
   },
@@ -223,15 +223,15 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   detailSubmittedBy: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "600",
     marginLeft: 4,
   },
   detailDate: {
-    fontSize: 12,
+    fontSize: 14,
   },
   detailAnswer: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: "700",
   },
 });

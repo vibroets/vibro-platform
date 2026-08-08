@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   floatingLabel: {
     position: 'absolute',
     left: 12,
-    top: -8,
+    top: -7,
     paddingHorizontal: 4,
     fontSize: 12,
     color: '#666',
@@ -331,11 +331,11 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 0,
-    padding: 12,
-    paddingTop: 16,
-    fontSize: 16,
+    padding: 10,
+    paddingTop: 12,
+    fontSize: 14,
     backgroundColor: "transparent",
-    minHeight: 50,
+    minHeight: 42,
   },
   lockedInput: {
     backgroundColor: "#f0f0f0",
@@ -347,14 +347,14 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "red",
-    marginTop: 5,
-    fontSize: 14,
+    marginTop: 4,
+    fontSize: 13,
   },
   hintText: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#666",
-    marginTop: 8,
-    marginBottom: 16,
+    marginTop: 6,
+    marginBottom: 10,
   },
 });
 

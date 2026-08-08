@@ -113,7 +113,10 @@ export default function ChatBot() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const userIdRef = useRef<number | undefined>(undefined);
   const { toast } = useToast();
+
+  useEffect(() => { userIdRef.current = user?.id; }, [user]);
 
   const fetchGroups = useCallback(async () => {
     setGroupsLoading(true);
@@ -404,6 +407,11 @@ export default function ChatBot() {
           const data = JSON.parse(event.data);
           if (data.type === "new_message_notification") {
             const msg = data.message;
+
+            if (msg?.sender?.id && userIdRef.current && msg.sender.id === userIdRef.current) {
+              return;
+            }
+
             const senderName = msg?.sender
               ? ((msg.sender.first_name || "") + " " + (msg.sender.last_name || "")).trim() || msg.sender.username
               : "Someone";
@@ -421,9 +429,7 @@ export default function ChatBot() {
               sender: senderName,
               preview,
             });
-            if (!open) {
-              fetchGroups();
-            }
+            fetchGroups();
             if (notifTimerRef.current) clearTimeout(notifTimerRef.current);
             notifTimerRef.current = setTimeout(() => setNotifPopup(null), 5000);
           }

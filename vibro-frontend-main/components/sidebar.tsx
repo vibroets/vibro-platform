@@ -27,6 +27,8 @@ import {
   UserCheck,
   Save,
   LayoutDashboard,
+  MailQuestion,
+  FolderOpen,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -159,6 +161,20 @@ export function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: Rea
       active: pathname === "/attendance",
       moduleKey: "attendance",
     },
+    {
+      label: "Guides",
+      icon: FolderOpen,
+      href: "/guides",
+      active: pathname.startsWith("/guides"),
+      moduleKey: "guides",
+    },
+    {
+      label: "Administration",
+      icon: Settings,
+      href: "/admin",
+      active: pathname.startsWith("/admin"),
+      moduleKey: "administration",
+    },
   ]
 
   const priority = {
@@ -179,10 +195,12 @@ export function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: Rea
   // Helper to get final access
   function getEffectiveAccess(moduleKey: string): "no_access" | "view_only" | "full_access" {
     const orgAccess = orgAccessMap.get(moduleKey) ?? "no_access";
-    const userAccess = userAccessMap.get(moduleKey) ?? "no_access";
 
     // If org gives no access, return no access regardless of user access
     if (orgAccess === "no_access") return "no_access";
+
+    // If user has no explicit entry for this module, inherit from org
+    const userAccess = userAccessMap.get(moduleKey) ?? orgAccess;
 
     // Else, return the lesser of org and user access (most restrictive)
     return priority[orgAccess] < priority[userAccess] ? orgAccess : userAccess;
@@ -226,12 +244,26 @@ export function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: Rea
       isSuperAdmin ||
       userinfo.role_details?.name?.toLowerCase() === "admin"
     ) {
+      // Administration is now in routes array and filtered by module access
+      // Only ensure it shows for admin/super_admin roles even if module access is not set
+      if (!filteredRoutes.some(r => r.href === "/admin")) {
+        filteredRoutes.push({
+          label: "Administration",
+          icon: Settings,
+          href: "/admin",
+          moduleKey: "administration",
+          active: pathname.startsWith("/admin"),
+        });
+      }
+    }
+
+    if (isSuperAdmin) {
       filteredRoutes.push({
-        label: "Administration",
-        icon: Settings,
-        href: "/admin",
-        moduleKey: "admin",
-        active: pathname.startsWith("/admin"),
+        label: "Enquiry",
+        icon: MailQuestion,
+        href: "/enquiry",
+        moduleKey: "enquiry",
+        active: pathname.startsWith("/enquiry"),
       });
     }
 

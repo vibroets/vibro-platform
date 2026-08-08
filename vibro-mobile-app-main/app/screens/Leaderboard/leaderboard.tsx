@@ -1,13 +1,13 @@
 import {
   View,
   Text,
-  SafeAreaView,
   StatusBar,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
   Image,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import React from "react";
 import styles from "@/styles/commonStyles";
 import { useNavigation } from "expo-router";
@@ -109,7 +109,7 @@ const Leaderboard = () => {
 
 
   return (
-    <SafeAreaView style={leaderboardStyles.container}>
+    <SafeAreaView style={leaderboardStyles.container} edges={['top']}>
       <StatusBar
         barStyle="light-content"
         backgroundColor={styles.header.backgroundColor}

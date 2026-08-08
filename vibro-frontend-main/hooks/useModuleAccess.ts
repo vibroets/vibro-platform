@@ -26,7 +26,7 @@ function getEffectiveAccess(
   )
 
   const org = orgMap.get(normalizedKey) ?? "no_access"
-  const user = userMap.get(normalizedKey) ?? "no_access"
+  const user = userMap.get(normalizedKey) ?? org
 
   return priority[org] <= priority[user] ? org : user
 }

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { UserCog, Plus, Edit, Trash2, Mail, Phone, Clock, Save, X } from "lucide-react";
 import axiosInstance from "@/utils/axiosInstance";
 import LearningLayout from "@/components/learning/LearningLayout";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 
 interface AvailabilitySlot { available: boolean; startTime: string; endTime: string; }
 type AvailabilitySchedule = Record<string, AvailabilitySlot>;
@@ -26,6 +27,8 @@ interface TrainerForm {
 const defaultTrainerForm: TrainerForm = { name: "", email: "", phone: "", type: "internal", department: "", expertise: "", hourly_rate: 0, bio: "" };
 
 export default function TrainerManagementPage() {
+  const { isFullAccess, isViewOnly, isSuperAdmin } = useModuleAccess("learning_training");
+  const canEdit = isFullAccess || isSuperAdmin;
   const [trainers, setTrainers] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -67,9 +70,13 @@ export default function TrainerManagementPage() {
   return (
     <LearningLayout title="Trainer Management" description="Manage internal and external trainers">
       <div className="flex justify-end mb-4">
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-[#3A72EC] text-white rounded-lg hover:bg-[#2a5dbf] transition-colors text-sm font-medium">
-          <Plus className="h-4 w-4" /> Add Trainer
-        </button>
+        {canEdit ? (
+          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-[#3A72EC] text-white rounded-lg hover:bg-[#2a5dbf] transition-colors text-sm font-medium">
+            <Plus className="h-4 w-4" /> Add Trainer
+          </button>
+        ) : isViewOnly ? (
+          <span className="text-xs text-gray-500 italic self-center">View only access</span>
+        ) : null}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -105,8 +112,12 @@ export default function TrainerManagementPage() {
                   <td className="px-4 py-3 text-gray-600">{t.department || "—"}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1.5">
-                      <button onClick={() => openEdit(t)} className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="Edit"><Edit className="h-4 w-4" /></button>
-                      <button onClick={() => handleDelete(t.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                      {canEdit && (
+                        <>
+                          <button onClick={() => openEdit(t)} className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="Edit"><Edit className="h-4 w-4" /></button>
+                          <button onClick={() => handleDelete(t.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

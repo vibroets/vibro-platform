@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  SafeAreaView,
   StatusBar,
   View,
   Text,
@@ -9,6 +8,7 @@ import {
   Platform,
   StyleSheet,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useNavigation } from "@react-navigation/native";
 import styles from "@/styles/commonStyles";
@@ -18,7 +18,7 @@ const CompletedTasks = () => {
   const navigation = useNavigation();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar
         barStyle="light-content"
         backgroundColor={styles.header.backgroundColor}

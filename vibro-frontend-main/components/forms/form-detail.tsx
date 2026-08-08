@@ -205,6 +205,14 @@ export function FormDetail({ id, onFolderId, status, plannerLocation, plannerOrd
   const [importGroups, setImportGroups] = useState<any[]>([]);
   const [importSelectedUsers, setImportSelectedUsers] = useState<number[]>([]);
   const [importSelectedGroups, setImportSelectedGroups] = useState<number[]>([]);
+  const [importWarnings, setImportWarnings] = useState<any[]>([]);
+  const [importWarningsDialogOpen, setImportWarningsDialogOpen] = useState(false);
+  const [importStep, setImportStep] = useState<"upload" | "validation" | "summary">("upload");
+  const [importValidationErrors, setImportValidationErrors] = useState<any[]>([]);
+  const [importValidationWarnings, setImportValidationWarnings] = useState<any[]>([]);
+  const [importValidationTotalRows, setImportValidationTotalRows] = useState(0);
+  const [importValidationValidRows, setImportValidationValidRows] = useState(0);
+  const [importSummary, setImportSummary] = useState<any>(null);
 
   const [nameFilter, setNameFilter] = useState("");
   const [designationFilter, setDesignationFilter] = useState("");
@@ -821,7 +829,38 @@ export function FormDetail({ id, onFolderId, status, plannerLocation, plannerOrd
     }
   };
 
-  const handleBulkImport = async () => {
+  const handleValidateImport = async () => {
+    if (!importFile || !id) return;
+    setImportLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", importFile);
+      formData.append("validate_only", "true");
+      if (importSelectedUsers.length > 0) {
+        formData.append("assign_user_ids", importSelectedUsers.join(","));
+      }
+      if (importSelectedGroups.length > 0) {
+        formData.append("assign_group_ids", importSelectedGroups.join(","));
+      }
+      const response = await axiosInstance.post(
+        `/forms/${id}/import-responses-followup`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      setImportValidationErrors(response.data.errors || []);
+      setImportValidationWarnings(response.data.warnings || []);
+      setImportValidationTotalRows(response.data.total_rows || 0);
+      setImportValidationValidRows(response.data.valid_rows || 0);
+      setImportStep("validation");
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || "Validation failed.";
+      hotToaster.error(msg);
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleConfirmImport = async () => {
     if (!importFile || !id) return;
     setImportLoading(true);
     try {
@@ -838,14 +877,27 @@ export function FormDetail({ id, onFolderId, status, plannerLocation, plannerOrd
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
+      const wCount = response.data.total_warnings || 0;
+      const eCount = response.data.total_errors || 0;
+      setImportSummary({
+        created_submissions: response.data.created_submissions,
+        created_answers: response.data.created_answers,
+        created_tasks: response.data.created_tasks,
+        total_errors: eCount,
+        total_warnings: wCount,
+        errors: response.data.errors || [],
+        warnings: response.data.warnings || [],
+      });
       hotToaster.success(
         `Import successful: ${response.data.created_submissions} responses, ${response.data.created_answers} answers, ${response.data.created_tasks} tasks` +
-        (response.data.total_errors > 0 ? ` (${response.data.total_errors} warnings)` : "")
+        (eCount > 0 ? ` (${eCount} errors)` : "") +
+        (wCount > 0 ? ` (${wCount} deadline corrections)` : "")
       );
-      setImportDialogOpen(false);
-      setImportFile(null);
-      setImportSelectedUsers([]);
-      setImportSelectedGroups([]);
+      if (wCount > 0 && response.data.warnings?.length) {
+        setImportWarnings(response.data.warnings);
+        setImportWarningsDialogOpen(true);
+      }
+      setImportStep("summary");
       fetchFollowupTable();
     } catch (error: any) {
       const msg = error?.response?.data?.error || "Import failed.";
@@ -853,6 +905,19 @@ export function FormDetail({ id, onFolderId, status, plannerLocation, plannerOrd
     } finally {
       setImportLoading(false);
     }
+  };
+
+  const resetImportDialog = () => {
+    setImportDialogOpen(false);
+    setImportFile(null);
+    setImportSelectedUsers([]);
+    setImportSelectedGroups([]);
+    setImportStep("upload");
+    setImportValidationErrors([]);
+    setImportValidationWarnings([]);
+    setImportValidationTotalRows(0);
+    setImportValidationValidRows(0);
+    setImportSummary(null);
   };
 
   const fetchUsers = async () => {
@@ -2660,6 +2725,45 @@ export function FormDetail({ id, onFolderId, status, plannerLocation, plannerOrd
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Import Warnings Dialog */}
+          <Dialog open={importWarningsDialogOpen} onOpenChange={setImportWarningsDialogOpen}>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+              <DialogHeader>
+                <DialogTitle className="text-sm font-semibold text-amber-700 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Import Deadline Corrections ({importWarnings.length})
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-600">
+                  The following rows had a Followup Deadline that was earlier than the Submission Date.
+                  The deadline has been auto-corrected to 7 days after the submission date to ensure
+                  the task is visible in the mobile app.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 mt-2">
+                {importWarnings.map((w, i) => (
+                  <div key={i} className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs">
+                    <div className="font-medium text-amber-900">
+                      Row {w.row}: {w.item}
+                    </div>
+                    <div className="mt-1 text-slate-600">
+                      <span className="text-red-600 line-through">{w.original_deadline}</span>
+                      {" → "}
+                      <span className="text-green-700 font-medium">{w.corrected_deadline}</span>
+                    </div>
+                    <div className="mt-0.5 text-slate-500">
+                      Submission Date: {w.submission_date}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end pt-2">
+                <Button size="sm" onClick={() => setImportWarningsDialogOpen(false)}>
+                  Got it
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Manage Recipients Tab */}
@@ -3463,133 +3567,303 @@ export function FormDetail({ id, onFolderId, status, plannerLocation, plannerOrd
       </Dialog>
 
       {/* Dialog for bulk import responses with followup data */}
-      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <Dialog open={importDialogOpen} onOpenChange={(open) => { if (!open) resetImportDialog(); }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Import Responses with Followup Data</DialogTitle>
             <DialogDescription>
               Upload an Excel file in the same format as the &quot;Responses with Followup Data&quot; table.
-              Response ID, Source ID, and Followup Response Submission ID columns can be blank. Rows with &quot;NC Closure Task&quot; in the Follow up action Title will be auto-assigned to the selected users/groups.
+              Response ID, Source ID, and Followup Response Submission ID columns can be blank.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            {/* Download template */}
-            <div className="flex items-center justify-between bg-slate-50 border rounded-md p-3">
-              <div>
-                <p className="text-sm font-medium text-slate-700">Download Template</p>
-                <p className="text-xs text-slate-500 mt-0.5">Get the Excel template with correct headers, a sample row, and instructions.</p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={downloadImportTemplate}
-              >
-                <Download className="h-4 w-4 mr-1" />
-                Template
-              </Button>
-            </div>
-
-            {/* File upload */}
-            <div>
-              <Label className="text-sm font-medium mb-2 block">Excel File</Label>
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-                className="w-full text-sm border rounded-md p-2 cursor-pointer file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
-              {importFile && (
-                <p className="text-xs text-slate-500 mt-1">Selected: {importFile.name}</p>
-              )}
-            </div>
-
-            {/* NC Closure Task assignment */}
-            <div className="border rounded-lg p-4 space-y-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-700">NC Closure Task Assignment</p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Select users/groups to auto-assign tasks where the Follow up action Title contains &quot;NC Closure Task&quot;.
-                </p>
-              </div>
-
-              {/* Users selection */}
-              <div>
-                <Label className="text-xs font-medium mb-1.5 block">Assign to Users</Label>
-                <div className="border rounded-md max-h-32 overflow-y-auto">
-                  {importUsers.length === 0 ? (
-                    <p className="text-xs text-slate-400 p-3 text-center">Loading users...</p>
-                  ) : (
-                    importUsers.map((u: any) => (
-                      <label
-                        key={u.id}
-                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 cursor-pointer text-sm"
-                      >
-                        <Checkbox
-                          checked={importSelectedUsers.includes(u.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setImportSelectedUsers([...importSelectedUsers, u.id]);
-                            } else {
-                              setImportSelectedUsers(importSelectedUsers.filter((x) => x !== u.id));
-                            }
-                          }}
-                        />
-                        <span>{u.first_name} {u.last_name} ({u.username})</span>
-                      </label>
-                    ))
-                  )}
+          {/* Step indicator */}
+          <div className="flex items-center gap-2 mb-2">
+            {["Upload", "Validation", "Summary"].map((label, i) => {
+              const stepVal = ["upload", "validation", "summary"][i];
+              const isActive = importStep === stepVal;
+              const isDone = ["upload", "validation", "summary"].indexOf(importStep) > i;
+              return (
+                <div key={i} className="flex items-center gap-2">
+                  <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${isActive ? "bg-blue-100 text-blue-700" : isDone ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-400"}`}>
+                    <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${isActive ? "bg-blue-600 text-white" : isDone ? "bg-green-600 text-white" : "bg-slate-300 text-white"}`}>
+                      {isDone ? "✓" : i + 1}
+                    </span>
+                    {label}
+                  </div>
+                  {i < 2 && <div className={`h-0.5 w-6 ${isDone ? "bg-green-400" : "bg-slate-200"}`} />}
                 </div>
-              </div>
-
-              {/* Groups selection */}
-              <div>
-                <Label className="text-xs font-medium mb-1.5 block">Assign to Groups</Label>
-                <div className="border rounded-md max-h-32 overflow-y-auto">
-                  {importGroups.length === 0 ? (
-                    <p className="text-xs text-slate-400 p-3 text-center">Loading groups...</p>
-                  ) : (
-                    importGroups.map((g: any) => (
-                      <label
-                        key={g.id}
-                        className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 cursor-pointer text-sm"
-                      >
-                        <Checkbox
-                          checked={importSelectedGroups.includes(g.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setImportSelectedGroups([...importSelectedGroups, g.id]);
-                            } else {
-                              setImportSelectedGroups(importSelectedGroups.filter((x) => x !== g.id));
-                            }
-                          }}
-                        />
-                        <span>{g.name || g.group_name || `Group ${g.id}`}</span>
-                      </label>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleBulkImport}
-              disabled={!importFile || importLoading}
-            >
-              {importLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Importing...
-                </>
-              ) : (
-                "Import"
+          {/* STEP 1: Upload */}
+          {importStep === "upload" && (
+            <div className="space-y-4 py-2">
+              <div className="flex items-center justify-between bg-slate-50 border rounded-md p-3">
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Download Template</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Get the Excel template with correct headers, a sample row, and instructions.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={downloadImportTemplate}>
+                  <Download className="h-4 w-4 mr-1" />
+                  Template
+                </Button>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Excel File</Label>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                  className="w-full text-sm border rounded-md p-2 cursor-pointer file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {importFile && (
+                  <p className="text-xs text-slate-500 mt-1">Selected: {importFile.name}</p>
+                )}
+              </div>
+
+              <div className="border rounded-lg p-4 space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">NC Closure Task Assignment</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Select users/groups to auto-assign tasks where the Follow up action Title contains &quot;NC Closure Task&quot;.
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs font-medium mb-1.5 block">Assign to Users</Label>
+                  <div className="border rounded-md max-h-32 overflow-y-auto">
+                    {importUsers.length === 0 ? (
+                      <p className="text-xs text-slate-400 p-3 text-center">Loading users...</p>
+                    ) : (
+                      importUsers.map((u: any) => (
+                        <label key={u.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 cursor-pointer text-sm">
+                          <Checkbox
+                            checked={importSelectedUsers.includes(u.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) setImportSelectedUsers([...importSelectedUsers, u.id]);
+                              else setImportSelectedUsers(importSelectedUsers.filter((x) => x !== u.id));
+                            }}
+                          />
+                          <span>{u.first_name} {u.last_name} ({u.username})</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-medium mb-1.5 block">Assign to Groups</Label>
+                  <div className="border rounded-md max-h-32 overflow-y-auto">
+                    {importGroups.length === 0 ? (
+                      <p className="text-xs text-slate-400 p-3 text-center">Loading groups...</p>
+                    ) : (
+                      importGroups.map((g: any) => (
+                        <label key={g.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 cursor-pointer text-sm">
+                          <Checkbox
+                            checked={importSelectedGroups.includes(g.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) setImportSelectedGroups([...importSelectedGroups, g.id]);
+                              else setImportSelectedGroups(importSelectedGroups.filter((x) => x !== g.id));
+                            }}
+                          />
+                          <span>{g.name || g.group_name || `Group ${g.id}`}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 2: Validation */}
+          {importStep === "validation" && (
+            <div className="space-y-4 py-2">
+              {/* Summary bar */}
+              <div className="flex gap-3">
+                <div className="flex-1 rounded-md bg-blue-50 border border-blue-200 p-3 text-center">
+                  <p className="text-2xl font-bold text-blue-700">{importValidationTotalRows}</p>
+                  <p className="text-xs text-blue-600 mt-0.5">Total Rows</p>
+                </div>
+                <div className="flex-1 rounded-md bg-green-50 border border-green-200 p-3 text-center">
+                  <p className="text-2xl font-bold text-green-700">{importValidationValidRows}</p>
+                  <p className="text-xs text-green-600 mt-0.5">Valid Rows</p>
+                </div>
+                <div className="flex-1 rounded-md bg-amber-50 border border-amber-200 p-3 text-center">
+                  <p className="text-2xl font-bold text-amber-700">{importValidationWarnings.length}</p>
+                  <p className="text-xs text-amber-600 mt-0.5">Auto-Corrections</p>
+                </div>
+                <div className="flex-1 rounded-md bg-red-50 border border-red-200 p-3 text-center">
+                  <p className="text-2xl font-bold text-red-700">{importValidationErrors.length}</p>
+                  <p className="text-xs text-red-600 mt-0.5">Issues</p>
+                </div>
+              </div>
+
+              {/* Warnings (deadline corrections) */}
+              {importValidationWarnings.length > 0 && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="text-sm font-medium text-amber-800">Deadline Auto-Corrections ({importValidationWarnings.length})</h3>
+                      <p className="text-xs text-amber-700 mt-1">The following rows had a Followup Deadline earlier than the Submission Date. The deadline has been auto-corrected to 7 days after the submission date.</p>
+                      <div className="mt-3 max-h-48 overflow-y-auto space-y-2">
+                        {importValidationWarnings.map((w, i) => (
+                          <div key={i} className="rounded border border-amber-200 bg-white p-2 text-xs">
+                            <div className="font-medium text-amber-900">Row {w.row}: {w.item}</div>
+                            <div className="mt-1 text-slate-600">
+                              <span className="text-red-600 line-through">{w.original_deadline}</span>
+                              {" → "}
+                              <span className="text-green-700 font-medium">{w.corrected_deadline}</span>
+                            </div>
+                            <div className="mt-0.5 text-slate-500">Submission Date: {w.submission_date}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               )}
-            </Button>
+
+              {/* Errors */}
+              {importValidationErrors.length > 0 ? (
+                <div className="rounded-md border border-red-200 bg-red-50 p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="text-sm font-medium text-red-800">Validation Issues ({importValidationErrors.length})</h3>
+                      <p className="text-xs text-red-700 mt-1">Review the issues below. Rows with unmatched questions will be skipped. Rows with missing followup titles won&apos;t create tasks.</p>
+                      <div className="mt-3 max-h-48 overflow-y-auto rounded-md border border-red-200 bg-white">
+                        <Table>
+                          <TableHeader className="sticky top-0 bg-white z-10">
+                            <TableRow>
+                              <TableHead className="text-xs">Row</TableHead>
+                              <TableHead className="text-xs">Item</TableHead>
+                              <TableHead className="text-xs">Field</TableHead>
+                              <TableHead className="text-xs">Issue</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {importValidationErrors.map((err, i) => (
+                              <TableRow key={i}>
+                                <TableCell className="text-xs">{err.row}</TableCell>
+                                <TableCell className="text-xs">{err.item}</TableCell>
+                                <TableCell className="text-xs">{err.field}</TableCell>
+                                <TableCell className="text-xs">{err.message}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-md bg-green-50 border border-green-200 p-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <div>
+                      <h3 className="text-sm font-medium text-green-800">All Clear</h3>
+                      <p className="text-xs text-green-700 mt-0.5">No validation issues found. All {importValidationTotalRows} rows are ready to import.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STEP 3: Summary */}
+          {importStep === "summary" && importSummary && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-md bg-green-50 border border-green-200 p-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  <div>
+                    <h3 className="text-sm font-medium text-green-800">Import Complete</h3>
+                    <p className="text-xs text-green-700 mt-0.5">
+                      {importSummary.created_submissions} responses, {importSummary.created_answers} answers, {importSummary.created_tasks} tasks created.
+                      {importSummary.total_warnings > 0 && ` ${importSummary.total_warnings} deadline corrections applied.`}
+                      {importSummary.total_errors > 0 && ` ${importSummary.total_errors} issues encountered.`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {importSummary.warnings?.length > 0 && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+                  <h3 className="text-sm font-medium text-amber-800 mb-2">Deadline Corrections Applied ({importSummary.warnings.length})</h3>
+                  <div className="max-h-40 overflow-y-auto space-y-2">
+                    {importSummary.warnings.map((w: any, i: number) => (
+                      <div key={i} className="rounded border border-amber-200 bg-white p-2 text-xs">
+                        <div className="font-medium text-amber-900">Row {w.row}: {w.item}</div>
+                        <div className="mt-1 text-slate-600">
+                          <span className="text-red-600 line-through">{w.original_deadline}</span>
+                          {" → "}
+                          <span className="text-green-700 font-medium">{w.corrected_deadline}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {importSummary.errors?.length > 0 && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-4">
+                  <h3 className="text-sm font-medium text-red-800 mb-2">Issues ({importSummary.errors.length})</h3>
+                  <div className="max-h-40 overflow-y-auto rounded-md border border-red-200 bg-white">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-white z-10">
+                        <TableRow>
+                          <TableHead className="text-xs">Row</TableHead>
+                          <TableHead className="text-xs">Item</TableHead>
+                          <TableHead className="text-xs">Issue</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {importSummary.errors.map((err: any, i: number) => (
+                          <TableRow key={i}>
+                            <TableCell className="text-xs">{err.row}</TableCell>
+                            <TableCell className="text-xs">{err.item}</TableCell>
+                            <TableCell className="text-xs">{err.message}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            {importStep === "upload" && (
+              <>
+                <Button variant="outline" onClick={resetImportDialog}>Cancel</Button>
+                <Button onClick={handleValidateImport} disabled={!importFile || importLoading}>
+                  {importLoading ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Validating...</>
+                  ) : (
+                    <><CheckCircle className="h-4 w-4 mr-2" /> Validate & Continue</>
+                  )}
+                </Button>
+              </>
+            )}
+            {importStep === "validation" && (
+              <>
+                <Button variant="outline" onClick={() => setImportStep("upload")}>Back</Button>
+                <Button onClick={handleConfirmImport} disabled={importLoading}>
+                  {importLoading ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Importing...</>
+                  ) : (
+                    <><Upload className="h-4 w-4 mr-2" /> Confirm Import ({importValidationValidRows} rows)</>
+                  )}
+                </Button>
+              </>
+            )}
+            {importStep === "summary" && (
+              <Button onClick={resetImportDialog}>Done</Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

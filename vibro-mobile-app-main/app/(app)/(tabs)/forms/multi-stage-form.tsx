@@ -3,8 +3,6 @@ import MultiStageFormScreen from "@/components/form/screens/MultiStageFormScreen
 import { useLocalSearchParams, router } from "expo-router";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-// import Header from "@/components/Header";
-import SearchBar from "@/components/SearchBar";
 
 export default function MultiStageForm() {
   const {
@@ -43,53 +41,39 @@ export default function MultiStageForm() {
 
   // Debug logging
   return (
-    <>
-      {/* <Header
-        title={"Forms Stage"}
-        showBack
-        onBackPress={() => {
-          router.back();
-        }}
-      /> */}
-      <View style={styles.container}>
-        {formType == "audit" ? (
+    <View style={styles.container}>
+      {formType == "audit" ? (
           <>
             <AuditFormScreen formId={formId} submissionId={submissionId} draftId={draftId} sourceScreen={sourceScreen} taskId={taskId} auditSubmissionData={auditSubmissionData} onClose={handleClose} plannerAssignmentId={plannerAssignmentId} collaborativeSubmissionId={collaborativeSubmissionId} groupDelegationId={groupDelegationId} groupDelegationStatus={groupDelegationStatus} auditGroupId={auditGroupId} />
           </>
         ) : (
           <>
-            <View style={{ marginBottom: 16, marginHorizontal: 16 }}>
-              <SearchBar placeholder="Search..." />
-              {!!resolvedFormTitle && (
-                <Text style={styles.formTitle}>{resolvedFormTitle}</Text>
-              )}
-            </View>
+            {!!resolvedFormTitle && (
+              <Text style={styles.formTitle}>{resolvedFormTitle}</Text>
+            )}
             <MultiStageFormScreen formId={formId} submissionId={submissionId} stageId={stageId} sourceScreen={sourceScreen} plannerAssignmentId={plannerAssignmentId} plannerLocation={plannerLocation} plannerLocationId={plannerLocationId} plannerOrderId={plannerOrderId} formTitle={resolvedFormTitle} />
           </>
         )}
-      </View>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 10,
-    // margin: 10,
-    // backgroundColor: "#fff",
   },
   formTitle: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: "600",
     textAlign: "center",
-    marginTop: 10,
+    marginHorizontal: 12,
+    marginVertical: 2,
     color: "#2196f3",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
     backgroundColor: "#f8f9fa",
-    borderRadius: 8,
-    borderLeftWidth: 8,
+    borderRadius: 6,
+    borderLeftWidth: 4,
     borderLeftColor: "#2196f3",
     elevation: 1,
     shadowColor: "#000",

@@ -19,6 +19,7 @@ import {
   InteractionManager,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -26,6 +27,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 import { useSelector } from "react-redux";
 import { ToggleContext } from "../../../app/(app)/_layout";
@@ -304,6 +306,7 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
     new Set([1]),
   );
   const [isOnline, setIsOnline] = useState(!networkService.isOffline());
+  const [refreshing, setRefreshing] = useState(false);
   const [collapsedFollowUpTasks, setCollapsedFollowUpTasks] = useState<
     Record<string, boolean>
   >({});
@@ -1333,6 +1336,7 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
           const cachedGroups = cachedForm.auditGroups as Stage[];
           if (cachedGroups && cachedGroups.length > 0) {
             let allCachedGroups = cachedGroups.map((stage: Stage, index: number) => withUniqueIdsForStage(stage, index));
+            allCachedGroups.sort((a: Stage, b: Stage) => (a.order || 0) - (b.order || 0));
             setStages(allCachedGroups);
             setLoading(false);
             loadedStageOrdersRef.current = new Set(cachedGroups.map((s: any) => s.order));
@@ -1362,6 +1366,7 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
       if (partialData && partialData.audit_group && partialData.audit_group.length > 0) {
           const data = partialData;
           let allStages = (data.audit_group || []).map((stage: Stage, index: number) => withUniqueIdsForStage(stage, index));
+          allStages.sort((a: Stage, b: Stage) => (a.order || 0) - (b.order || 0));
           setStages(allStages);
           setAuditInfo(withUniqueIdsForAuditInfo(data.audit_info || null));
           setPassPercentage(data?.pass_percentage || 0);
@@ -1411,6 +1416,18 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
 
   useEffect(() => {
     getFormStagesRef.current = getFormStages;
+  }, [getFormStages]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      formLoadRetryCountRef.current = 0;
+      loadedStageOrdersRef.current = new Set();
+      allStageOrdersRef.current = [];
+      await getFormStages();
+    } finally {
+      setRefreshing(false);
+    }
   }, [getFormStages]);
 
   const backgroundLoadRemainingStages = useCallback(async (
@@ -1827,7 +1844,9 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
 
           // If we have form structure stored locally, use it instead of fetching
           if (draft.formStructure) {
-            setStages((draft.formStructure.stages || []).map((stage: Stage, index: number) => withUniqueIdsForStage(stage, index)));
+            const draftStages = (draft.formStructure.stages || []).map((stage: Stage, index: number) => withUniqueIdsForStage(stage, index));
+            draftStages.sort((a: Stage, b: Stage) => (a.order || 0) - (b.order || 0));
+            setStages(draftStages);
             setAuditInfo(withUniqueIdsForAuditInfo(draft.formStructure.audit_info || null));
             setPassPercentage(draft.formStructure.pass_percentage || 0);
             setFomData(draft.formStructure);
@@ -2956,7 +2975,8 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
       });
     }
 
-    stages.forEach((stage, stageIndex) => {
+    const sortedStages = [...stages].sort((a: Stage, b: Stage) => (a.order || 0) - (b.order || 0));
+    sortedStages.forEach((stage, stageIndex) => {
       // Add ALL questions from this stage - don't filter out duplicates
       // The uniqueId will ensure each question has its own form field
       const stageQuestions = stage.questions || [];
@@ -3815,7 +3835,7 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
       const collaborativeLockedBadge = isCollaborativelyLocked ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 }}>
           <MaterialIcons name="lock" size={12} color="#9CA3AF" />
-          <Text style={{ fontSize: 10, color: '#9CA3AF', marginLeft: 4 }}>Answered by teammate</Text>
+          <Text style={{ fontSize: 12, color: '#9CA3AF', marginLeft: 4 }}>Answered by teammate</Text>
         </View>
       ) : null;
       const collaborativeFadedStyle = isCollaborativelyLocked
@@ -4449,6 +4469,15 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
             !bannerDismissed &&
             styles.formContainerWithBanner,
         ])}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#2196f3"
+            colors={["#2196f3"]}
+            progressViewOffset={80}
+          />
+        }
       >
         <FormContainerContext.Provider
           value={
@@ -5063,108 +5092,107 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
               </TouchableOpacity>
             </View>
           )}
+
+          {/* Spacer to allow scrolling past sticky footer */}
+          <View style={{ height: 120 }} />
         </FormContainerContext.Provider>
       </KeyboardAwareContainer>
 
       {!isCompleted && (
         <View style={styles.stickyFooter}>
           {showPreview ? (
-            <>
-              <View style={styles.stickyFooterRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.button,
-                    { backgroundColor: "#2196f3" },
-                    styles.stickyFooterGridButton,
-                  ]}
-                  onPress={() => {
-                    setShowPreview(false);
+            <View style={styles.stickyFooterRow}>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  { backgroundColor: "#2196f3" },
+                  styles.stickyFooterButton,
+                ]}
+                onPress={() => {
+                  setShowPreview(false);
 
-                    const groupsToExpand = new Set([1]);
+                  const groupsToExpand = new Set([1]);
 
-                    stages.forEach((stage) => {
-                      const hasMissingRequiredFields = (
-                        stage.questions || []
-                      ).some((question: any) => {
-                        if (!question.is_required) return false;
+                  stages.forEach((stage) => {
+                    const hasMissingRequiredFields = (
+                      stage.questions || []
+                    ).some((question: any) => {
+                      if (!question.is_required) return false;
 
-                        const value = allValues[getQuestionKey(question)];
-                        let isMissing = false;
+                      const value = allValues[getQuestionKey(question)];
+                      let isMissing = false;
 
-                        switch (question.question_type) {
-                          case "short_answer":
-                          case "long_answer":
-                            return (
-                              !value ||
-                              (typeof value === "string" && value.trim() === "")
-                            );
-                          case "dropdown":
-                          case "division":
-                          case "sub_division":
-                          case "location":
-                          case "user":
-                            return (
-                              !value || typeof value !== "object" || !value?.id
-                            );
-                          case "multiple_choice":
-                          case "checkboxes":
-                            return !Array.isArray(value) || value.length === 0;
-                          case "date":
-                          case "time":
-                          case "datetime":
-                            return !value;
-                          case "linear_scale":
-                            return value === undefined || value === null;
-                          case "upload_image":
-                          case "upload_video":
-                          case "upload_audio":
-                          case "upload_file":
-                            return (
-                              !value ||
-                              (typeof value === "string" &&
-                                value.split("|").filter(Boolean).length === 0)
-                            );
-                          case "audit":
-                          case "signature":
-                            return !value;
-                          default:
-                            return false;
-                        }
-                      });
-
-                      if (hasMissingRequiredFields) {
-                        groupsToExpand.add(stage.id);
+                      switch (question.question_type) {
+                        case "short_answer":
+                        case "long_answer":
+                          return (
+                            !value ||
+                            (typeof value === "string" && value.trim() === "")
+                          );
+                        case "dropdown":
+                        case "division":
+                        case "sub_division":
+                        case "location":
+                        case "user":
+                          return (
+                            !value || typeof value !== "object" || !value?.id
+                          );
+                        case "multiple_choice":
+                        case "checkboxes":
+                          return !Array.isArray(value) || value.length === 0;
+                        case "date":
+                        case "time":
+                        case "datetime":
+                          return !value;
+                        case "linear_scale":
+                          return value === undefined || value === null;
+                        case "upload_image":
+                        case "upload_video":
+                        case "upload_audio":
+                        case "upload_file":
+                          return (
+                            !value ||
+                            (typeof value === "string" &&
+                              value.split("|").filter(Boolean).length === 0)
+                          );
+                        case "audit":
+                        case "signature":
+                          return !value;
+                        default:
+                          return false;
                       }
                     });
 
-                    setExpandedAuditGroups(groupsToExpand);
-                  }}
-                >
-                  <Text style={styles.buttonText}>Edit</Text>
-                </TouchableOpacity>
-                {/* Audit Bulk Assign Button - Only for audit forms, doesn't affect standard forms */}
-                {(() => {
-                  // Check if there are ANY questions with follow-up logic (not just toggle-only)
-                  const auditInfoQuestions = (auditInfo as any)?.questions || [];
-                  const stageQuestions = (stages || []).flatMap(
-                    (stage: any) => stage?.questions || [],
-                  );
+                    if (hasMissingRequiredFields) {
+                      groupsToExpand.add(stage.id);
+                    }
+                  });
+
+                  setExpandedAuditGroups(groupsToExpand);
+                }}
+              >
+                <MaterialIcons name="edit" size={18} color="white" style={{ marginRight: 6 }} />
+                <Text style={styles.buttonText}>Edit</Text>
+              </TouchableOpacity>
+              {/* Audit Bulk Assign Button - Only for audit forms, doesn't affect standard forms */}
+              {(() => {
                 const hasAnyFollowUpTasks = hasFollowUpTasks;
 
-                return hasAnyFollowUpTasks ? (
-                  <TouchableOpacity
-                    style={[
-                      styles.button,
-                      { backgroundColor: "#FF9500" },
-                      styles.stickyFooterGridButton,
-                    ]}
-                    onPress={handleAssignTaskPress}
-                  >
+                return (
+                  hasAnyFollowUpTasks && (
+                    <TouchableOpacity
+                      style={[
+                        styles.button,
+                        { backgroundColor: "#FF9500" },
+                        styles.stickyFooterButton,
+                      ]}
+                      onPress={handleAssignTaskPress}
+                    >
                       <MaterialIcons
                         name="assignment"
-                        size={20}
+                        size={18}
                         color="white"
-                        style={{ marginRight: 8 }}
+                        style={{ marginRight: 6 }}
                       />
                       <Text
                         style={styles.buttonText}
@@ -5174,34 +5202,33 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
                         Assign Task
                       </Text>
                     </TouchableOpacity>
-                  ) : null;
-                })()}
-              </View>
-              <View style={styles.stickyFooterRow}>
-                {isOnline ? (
-                  <TouchableOpacity
-                    style={[
-                      styles.button,
-                      styles.draftStyleButton,
-                      styles.stickyFooterGridButton,
-                    ]}
-                    onPress={() => setShowDraftConfirmation(true)}
-                  >
-                    <MaterialIcons
-                      name="save"
-                      size={20}
-                      color="white"
-                      style={{ marginRight: 8 }}
-                    />
-                    <Text style={styles.buttonText}>Save as Draft</Text>
-                  </TouchableOpacity>
-                ) : null}
+                  )
+                );
+              })()}
+              {isOnline ? (
                 <TouchableOpacity
                   style={[
                     styles.button,
-                    styles.nextButton,
-                    submitting && styles.disabledButton,
-                    styles.stickyFooterGridButton,
+                    styles.draftStyleButton,
+                    styles.stickyFooterButton,
+                  ]}
+                  onPress={() => setShowDraftConfirmation(true)}
+                >
+                  <MaterialIcons
+                    name="save"
+                    size={18}
+                    color="white"
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={styles.buttonText}>Draft</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  styles.nextButton,
+                  submitting && styles.disabledButton,
+                  styles.stickyFooterButton,
                 ]}
                 onPress={async () => {
                   if (submitInFlightRef.current) {
@@ -5212,13 +5239,13 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
                   if (!allRequiredFilledLocal) {
                     const errorMap =
                       collectMissingRequiredErrors(allValues);
-                      setValidationErrorCount(Object.keys(errorMap).length);
-                      setShowValidationBanner(true);
-                      setValidationErrors(errorMap);
-                      setShowPreview(false);
-                      Toast.show({
-                        type: "error",
-                        text1: "Validation Error",
+                    setValidationErrorCount(Object.keys(errorMap).length);
+                    setShowValidationBanner(true);
+                    setValidationErrors(errorMap);
+                    setShowPreview(false);
+                    Toast.show({
+                      type: "error",
+                      text1: "Validation Error",
                       text2:
                         "Please fill all required fields before submitting.",
                       position: "top",
@@ -5233,15 +5260,8 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
                   setAllowNavigation(true);
 
                   try {
-                    // Submit the form using the hook's handleSubmit.
-                    // In collaborative mode, bypass RHF's built-in per-field "required"
-                    // validation (it doesn't know about collaboratively-locked/teammate-
-                    // answered fields) and rely on our own allRequiredFilledLocal check above.
                     shouldTriggerFollowupsRef.current = true;
                     if (isCollaborativeMode) {
-                      // Exclude locked/teammate-answered questions from the
-                      // submission payload to prevent 409 conflicts on the
-                      // backend.  Only send answers this user actually filled in.
                       const submitValues = { ...allValues };
                       for (const lk of collaborativeAnsweredRef.current) {
                         delete submitValues[lk];
@@ -5259,16 +5279,16 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
                       allowNavigationRef.current = false;
                       setAllowNavigation(false);
                       setShowPreview(false);
-                      const errData = error?.data || error?.response?.data;
-                      const backendError =
-                        errData?.error ||
-                        (typeof errData === "string" ? errData : null) ||
-                        error?.message ||
-                        "An error occurred during submission";
-                      Toast.show({
-                        type: "error",
-                        text1: "Submission Failed",
-                        text2: backendError,
+                    const errData = error?.data || error?.response?.data;
+                    const backendError =
+                      errData?.error ||
+                      (typeof errData === "string" ? errData : null) ||
+                      error?.message ||
+                      "An error occurred during submission";
+                    Toast.show({
+                      type: "error",
+                      text1: "Submission Failed",
+                      text2: backendError,
                       position: "top",
                     });
                   } finally {
@@ -5284,22 +5304,21 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
                   }
                 }}
                 disabled={submitting}
-                >
-                  {submitting ? (
-                    <>
-                      <ActivityIndicator
-                        size="small"
-                        color="#fff"
-                        style={{ marginRight: 8 }}
-                      />
-                      <Text style={styles.buttonText}>Submitting...</Text>
-                    </>
-                  ) : (
-                    <Text style={styles.buttonText}>Submit</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </>
+              >
+                {submitting ? (
+                  <>
+                    <ActivityIndicator
+                      size="small"
+                      color="#fff"
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text style={styles.buttonText}>Submitting...</Text>
+                  </>
+                ) : (
+                  <Text style={styles.buttonText}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={styles.stickyFooterRow}>
               {isOnline && (
@@ -5313,11 +5332,11 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
                 >
                   <MaterialIcons
                     name="save"
-                    size={20}
+                    size={18}
                     color="white"
-                    style={{ marginRight: 8 }}
+                    style={{ marginRight: 6 }}
                   />
-                  <Text style={styles.buttonText}>Save as Draft</Text>
+                  <Text style={styles.buttonText}>Draft</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
@@ -5328,6 +5347,12 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
                 ]}
                 onPress={handlePreviewPress}
               >
+                <MaterialIcons
+                  name="visibility"
+                  size={18}
+                  color="white"
+                  style={{ marginRight: 6 }}
+                />
                 <Text style={styles.buttonText}>Preview</Text>
               </TouchableOpacity>
             </View>
@@ -5905,7 +5930,7 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
                     borderBottomColor: shareActiveTab === tab ? "#2196f3" : "transparent",
                   }}
                 >
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: shareActiveTab === tab ? "#2196f3" : "#666" }}>
+                  <Text style={{ fontSize: 16, fontWeight: "600", color: shareActiveTab === tab ? "#2196f3" : "#666" }}>
                     {tab === "user" ? "Users" : tab === "groups" ? "Groups" : "Leaders"}
                   </Text>
                 </TouchableOpacity>
@@ -5920,7 +5945,7 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
                 paddingHorizontal: 12,
                 paddingVertical: 8,
                 marginBottom: 12,
-                fontSize: 14,
+                fontSize: 16,
               }}
               placeholder="Search..."
               value={shareSearchQuery}
@@ -5949,7 +5974,7 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
                     }}
                     onPress={() => toggleShareSelection(item.id)}
                   >
-                    <Text style={{ fontSize: 14, color: "#333" }}>{displayName}</Text>
+                    <Text style={{ fontSize: 16, color: "#333" }}>{displayName}</Text>
                     {shareSelectedIds.includes(item.id) && (
                       <MaterialIcons name="check" size={20} color="#007AFF" />
                     )}
@@ -5958,7 +5983,7 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
               }}
               ListEmptyComponent={
                 <View style={{ padding: 20, alignItems: "center" }}>
-                  <Text style={{ color: "#9CA3AF", fontSize: 14 }}>No items found</Text>
+                  <Text style={{ color: "#9CA3AF", fontSize: 16 }}>No items found</Text>
                 </View>
               }
             />
@@ -5968,7 +5993,7 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
                 onPress={() => { setShowShareModal(false); setShareSelectedIds([]); }}
                 style={{ paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, backgroundColor: "#F3F4F6" }}
               >
-                <Text style={{ fontSize: 14, color: "#666", fontWeight: "600" }}>Cancel</Text>
+                <Text style={{ fontSize: 16, color: "#666", fontWeight: "600" }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleShareSubmit}
@@ -5980,7 +6005,7 @@ const AuditFormScreen: React.FC<AuditFormScreenProps> = ({
                   backgroundColor: isSharing || shareSelectedIds.length === 0 ? "#93C5FD" : "#2196f3",
                 }}
               >
-                <Text style={{ fontSize: 14, color: "white", fontWeight: "600" }}>
+                <Text style={{ fontSize: 16, color: "white", fontWeight: "600" }}>
                   {isSharing ? "Sharing..." : "Share"}
                 </Text>
               </TouchableOpacity>
@@ -5999,24 +6024,24 @@ const styles = StyleSheet.create({
     width: "100%", // Ensure full width on all screens
   },
   formTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "600",
     textAlign: "center",
     marginTop: 4,
     marginLeft: 18,
     marginRight: 18,
-    marginBottom: 8,
+    marginBottom: 6,
     color: "#2196f3",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     backgroundColor: "#f8f9fa",
     borderRadius: 8,
-    borderLeftWidth: 8,
+    borderLeftWidth: 6,
     borderLeftColor: "#2196f3",
     elevation: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 2,
   },
   container: {
@@ -6024,7 +6049,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   formContainer: {
-    paddingBottom: 180,
+    paddingBottom: 140,
     flexGrow: 1, // Allow content to grow
   },
   buttonContainer: {
@@ -6067,19 +6092,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#007AFF",
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
     flex: 1,
-    marginHorizontal: 4,
-    minHeight: 56, // Increased for better visibility
-    minWidth: 100,
+    marginHorizontal: 3,
+    minHeight: 40,
+    minWidth: 0,
     maxWidth: "100%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
   },
   nextButton: {
     backgroundColor: "#34C759",
@@ -6088,22 +6108,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#C7C7CC",
   },
   buttonText: {
-    ...typography.labelLarge,
+    fontSize: 12,
     color: textColors.white,
     fontWeight: "600",
   },
   stageIndicator: {
-    marginTop: 10,
-    marginBottom: 10,
+    marginTop: 6,
+    marginBottom: 6,
     marginHorizontal: 16,
     backgroundColor: "#fff",
     borderRadius: 6,
-    padding: 10,
+    padding: 6,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   loadingContainer: {
     flex: 1,
@@ -6157,7 +6177,7 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
     padding: 10,
     borderRadius: 8,
-    marginVertical: 10,
+    marginVertical: 8,
     marginHorizontal: 10,
     fontSize: 14,
     paddingRight: 36,
@@ -6177,7 +6197,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   optionItem: {
-    padding: 16,
+    padding: 12,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -6275,7 +6295,7 @@ const styles = StyleSheet.create({
   },
   errorMessage: {
     color: "#FF3B30",
-    fontSize: 12,
+    fontSize: 14,
     marginTop: 4,
   },
   draftModal: {
@@ -6374,7 +6394,7 @@ const styles = StyleSheet.create({
   questionSeparator: {
     height: 1,
     backgroundColor: "#E5E7EB",
-    marginVertical: 12,
+    marginVertical: 8,
     marginHorizontal: 4,
   },
   stickyBannerContainer: {
@@ -6390,18 +6410,23 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "transparent",
+    backgroundColor: "#F2F2F7",
     paddingBottom: 0,
-    paddingTop: 8,
+    paddingTop: 4,
     zIndex: 200,
   },
   stickyFooterButton: {
     flex: 1,
-    marginHorizontal: 4,
-    minHeight: 56,
+    marginHorizontal: 3,
+    minHeight: 40,
+    minWidth: 0,
+    maxWidth: undefined,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 8,
   },
   stickyFooterRow: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -6418,13 +6443,13 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   formContainerWithBanner: {
-    paddingTop: 84, // Add padding to account for the sticky banner
+    paddingTop: 70, // Add padding to account for the sticky banner
   },
   followUpTaskContainer: {
     backgroundColor: "#F8F9FA",
     borderRadius: 8,
-    padding: 16,
-    marginVertical: 8,
+    padding: 10,
+    marginVertical: 6,
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
@@ -6432,8 +6457,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
-    paddingBottom: 8,
+    marginBottom: 8,
+    paddingBottom: 6,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   },
@@ -6465,7 +6490,7 @@ const styles = StyleSheet.create({
   followUpTaskValue: {
     ...typography.bodyMedium,
     color: textColors.primary,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   addTaskButton: {
     flexDirection: "row",
@@ -6532,8 +6557,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#D1D5DB",
     borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    padding: 10,
+    fontSize: 14,
     color: textColors.primary,
     backgroundColor: "#fff",
   },
@@ -6549,8 +6574,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#D1D5DB",
     borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    padding: 10,
+    fontSize: 14,
     color: textColors.primary,
     backgroundColor: "#fff",
     width: 60,
@@ -6617,8 +6642,8 @@ const styles = StyleSheet.create({
   taskDropdownSearch: {
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
-    padding: 12,
-    fontSize: 16,
+    padding: 10,
+    fontSize: 14,
     color: textColors.primary,
   },
   taskDropdownItem: {

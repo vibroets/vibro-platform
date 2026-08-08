@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import dynamic from "next/dynamic";
 
 const AdminTabs = dynamic(
@@ -17,6 +18,8 @@ const AdminTabs = dynamic(
 
 export default function AdminPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const { isFullAccess, isViewOnly, isSuperAdmin } = useModuleAccess("administration");
+  const canEdit = isFullAccess || isSuperAdmin;
 
   return (
     <div className="min-h-screen ">
@@ -39,7 +42,7 @@ export default function AdminPage() {
               {/* </div> */}
 
               {/* <Suspense fallback={<div>Loading admin tabs...</div>}> */}
-              <AdminTabs />
+              <AdminTabs canEdit={canEdit} />
               {/* </Suspense>   */}
             </div>
           </div>

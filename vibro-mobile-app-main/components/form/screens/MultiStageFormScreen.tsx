@@ -30,6 +30,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 import { useDispatch, useSelector } from "react-redux";
 import { ToggleContext } from "../../../app/(app)/_layout";
@@ -5731,9 +5732,9 @@ const MultiStageFormScreen: React.FC<MultiStageFormScreenProps> = ({
             >
               <MaterialIcons
                 name="edit"
-                size={20}
+                size={18}
                 color="white"
-                style={{ marginRight: 8 }}
+                style={{ marginRight: 6 }}
               />
               <Text style={styles.buttonText}>Edit</Text>
             </TouchableOpacity>
@@ -5748,9 +5749,9 @@ const MultiStageFormScreen: React.FC<MultiStageFormScreenProps> = ({
                 >
                 <MaterialIcons
                   name="assignment"
-                  size={20}
+                  size={18}
                   color="white"
-                  style={{ marginRight: 8 }}
+                  style={{ marginRight: 6 }}
                 />
                 <Text
                   style={styles.buttonText}
@@ -5761,8 +5762,6 @@ const MultiStageFormScreen: React.FC<MultiStageFormScreenProps> = ({
                 </Text>
               </TouchableOpacity>
             )}
-          </View>
-          <View style={styles.stickyFooterRow}>
             {isOnline ? (
               <TouchableOpacity
                 style={[
@@ -5774,11 +5773,11 @@ const MultiStageFormScreen: React.FC<MultiStageFormScreenProps> = ({
               >
                 <MaterialIcons
                   name="save"
-                  size={20}
+                  size={18}
                   color="white"
-                  style={{ marginRight: 8 }}
+                  style={{ marginRight: 6 }}
                 />
-                <Text style={styles.buttonText}>Save as Draft</Text>
+                <Text style={styles.buttonText}>Draft</Text>
               </TouchableOpacity>
             ) : (
               <View style={styles.stickyFooterSpacer} />
@@ -5798,7 +5797,7 @@ const MultiStageFormScreen: React.FC<MultiStageFormScreenProps> = ({
                   <ActivityIndicator
                     size="small"
                     color="#fff"
-                    style={{ marginRight: 8 }}
+                    style={{ marginRight: 6 }}
                   />
                   <Text style={styles.buttonText}>Submitting...</Text>
                 </>
@@ -5830,11 +5829,11 @@ const MultiStageFormScreen: React.FC<MultiStageFormScreenProps> = ({
               >
                 <MaterialIcons
                   name="save"
-                  size={20}
+                  size={18}
                   color="white"
-                  style={{ marginRight: 8 }}
+                  style={{ marginRight: 6 }}
                 />
-                <Text style={styles.buttonText}>Save as Draft</Text>
+                <Text style={styles.buttonText}>Draft</Text>
               </TouchableOpacity>
             ) : (
               <View style={styles.stickyFooterSpacer} />
@@ -5847,6 +5846,12 @@ const MultiStageFormScreen: React.FC<MultiStageFormScreenProps> = ({
               ]}
               onPress={handlePreview}
             >
+              <MaterialIcons
+                name="visibility"
+                size={18}
+                color="white"
+                style={{ marginRight: 6 }}
+              />
               <Text style={styles.buttonText}>Preview</Text>
             </TouchableOpacity>
           </View>
@@ -6138,59 +6143,62 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: "600",
   },
   formContainer: {
-    paddingBottom: 180,
+    paddingBottom: 50,
     flexGrow: 1,
   },
   formContainerWithBanner: {
-    paddingTop: 84,
+    paddingTop: 70,
   },
   stickyFooter: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "transparent",
+    backgroundColor: "#F2F2F7",
     paddingBottom: 0,
-    paddingTop: 8,
+    paddingTop: 4,
     zIndex: 200,
   },
   stickyFooterRow: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
   },
   stickyFooterButton: {
     flex: 1,
-    marginHorizontal: 4,
-    minHeight: 56,
+    marginHorizontal: 3,
+    minHeight: 40,
+    minWidth: 0,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 8,
   },
   stickyFooterSpacer: {
     flex: 1,
-    marginHorizontal: 4,
-    minHeight: 56,
+    marginHorizontal: 3,
+    minHeight: 40,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 0,
   },
   stageIndicator: {
     marginTop: 1,
-    marginBottom: 10,
+    marginBottom: 6,
     marginHorizontal: 16,
     backgroundColor: "#fff",
     borderRadius: 6,
-    padding: 10,
+    padding: 6,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   topMenuButton: {
     position: "absolute",
@@ -6228,19 +6236,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#007AFF",
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
     flex: 1,
-    marginHorizontal: 4,
-    minHeight: 56,
-    minWidth: 100,
+    marginHorizontal: 3,
+    minHeight: 40,
+    minWidth: 0,
     maxWidth: "100%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
   },
   nextButton: {
     backgroundColor: "#34C759",
@@ -6252,19 +6255,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFA500",
   },
   completedInfo: {
-    marginTop: 20,
+    marginTop: 12,
     marginHorizontal: 16,
-    padding: 16,
+    padding: 12,
     backgroundColor: "#F8F9FA",
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
   stageHeaderText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: "#007AFF",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   completedInfoRow: {
     flexDirection: "row",
@@ -6275,20 +6278,20 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   completedText: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#374151",
     flex: 1,
   },
   infoSeparator: {
     height: 1,
     backgroundColor: "#E5E7EB",
-    marginVertical: 12,
+    marginVertical: 8,
   },
   followUpTaskContainer: {
     backgroundColor: "#F8F9FA",
     borderRadius: 8,
-    padding: 16,
-    marginVertical: 8,
+    padding: 12,
+    marginVertical: 6,
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
@@ -6296,8 +6299,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
-    paddingBottom: 8,
+    marginBottom: 8,
+    paddingBottom: 6,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
   },
@@ -6311,25 +6314,25 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   followUpTaskTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: "#007AFF",
-    marginLeft: 8,
+    marginLeft: 6,
     flexShrink: 1,
   },
   followUpTaskContent: {
     flex: 1,
   },
   followUpTaskLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     color: "#6B7280",
-    marginBottom: 4,
+    marginBottom: 3,
   },
   followUpTaskValue: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#374151",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   addTaskButton: {
     flexDirection: "row",
@@ -6342,9 +6345,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   addTaskButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#fff",
-    marginLeft: 6,
+    marginLeft: 4,
     fontWeight: "600",
   },
   modalOverlay: {
@@ -6618,13 +6621,13 @@ const styles = StyleSheet.create({
   questionSeparator: {
     height: 1,
     backgroundColor: "#E5E7EB",
-    marginVertical: 12,
+    marginVertical: 8,
     marginHorizontal: 4,
   },
   stageApprovalContainer: {
-    marginTop: 16,
+    marginTop: 10,
     marginHorizontal: 4,
-    padding: 16,
+    padding: 12,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#E5E7EB",
@@ -6634,27 +6637,27 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEE2E2",
   },
   stageApprovalTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-    marginBottom: 10,
-  },
-  stageApprovalLabel: {
     fontSize: 14,
     fontWeight: "600",
+    color: "#111827",
+    marginBottom: 8,
+  },
+  stageApprovalLabel: {
+    fontSize: 13,
+    fontWeight: "600",
     color: "#6B7280",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   stageApprovalRemarksInput: {
-    minHeight: 90,
+    minHeight: 70,
     borderWidth: 1,
     borderColor: "#D1D5DB",
     borderRadius: 8,
-    padding: 12,
-    fontSize: 15,
+    padding: 10,
+    fontSize: 14,
     color: "#374151",
     backgroundColor: "#fff",
-    marginBottom: 14,
+    marginBottom: 10,
   },
   stageApprovalButtons: {
     flexDirection: "row",
@@ -6671,14 +6674,14 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   stageApprovalOptionText: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#111827",
     fontWeight: "600",
   },
   stageApprovalHint: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#6B7280",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   taskModal: {
     width: "95%",

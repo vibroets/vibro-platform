@@ -78,7 +78,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.replace(fallback?.href ?? "/login");
   }, [accessToken, isHydrated, router, userinfo]);
 
-  if (!isHydrated) {
+  if (!isHydrated || !accessToken) {
     return <div className="p-6">Loading...</div>;
   }
 

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { MapPin, Plus, Edit, Trash2, Building, Users, Save, X } from "lucide-react";
 import axiosInstance from "@/utils/axiosInstance";
 import LearningLayout from "@/components/learning/LearningLayout";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 
 const EQUIPMENT_LIST = ["Projector", "Laptop", "Whiteboard", "Internet", "Lab Equipment", "Safety Equipment", "Video Conferencing", "Sound System", "Microphone", "Printer", "TV Screen", "AC"];
 const AMENITY_LIST = ["Parking", "Cafeteria", "Restrooms", "Air Conditioning", "Wheelchair Access", "Storage", "Power Backup", "Catering Service"];
@@ -17,6 +18,8 @@ interface VenueForm {
 const defaultVenueForm: VenueForm = { name: "", type: "training-room", location: "", building: "", floor: "", capacity: 20, equipment: [], amenities: [], hourly_rate: 0, available: true, description: "" };
 
 export default function VenueManagementPage() {
+  const { isFullAccess, isViewOnly, isSuperAdmin } = useModuleAccess("learning_training");
+  const canEdit = isFullAccess || isSuperAdmin;
   const [venues, setVenues] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -57,9 +60,13 @@ export default function VenueManagementPage() {
   return (
     <LearningLayout title="Venue Management" description="Manage training venues and facilities">
       <div className="flex justify-end mb-4">
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-[#3A72EC] text-white rounded-lg hover:bg-[#2a5dbf] transition-colors text-sm font-medium">
-          <Plus className="h-4 w-4" /> Add Venue
-        </button>
+        {canEdit ? (
+          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-[#3A72EC] text-white rounded-lg hover:bg-[#2a5dbf] transition-colors text-sm font-medium">
+            <Plus className="h-4 w-4" /> Add Venue
+          </button>
+        ) : isViewOnly ? (
+          <span className="text-xs text-gray-500 italic self-center">View only access</span>
+        ) : null}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -92,8 +99,12 @@ export default function VenueManagementPage() {
                   <td className="px-4 py-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${v.available ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>{v.available ? "Available" : "Unavailable"}</span></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1.5">
-                      <button onClick={() => openEdit(v)} className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="Edit"><Edit className="h-4 w-4" /></button>
-                      <button onClick={() => handleDelete(v.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                      {canEdit && (
+                        <>
+                          <button onClick={() => openEdit(v)} className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="Edit"><Edit className="h-4 w-4" /></button>
+                          <button onClick={() => handleDelete(v.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

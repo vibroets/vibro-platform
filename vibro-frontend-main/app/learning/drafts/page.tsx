@@ -4,8 +4,11 @@ import React, { useState, useEffect } from "react";
 import { Save, BookOpen, Video, FileText, Trash2, Edit2, Clock, AlertCircle } from "lucide-react";
 import axiosInstance from "@/utils/axiosInstance";
 import LearningLayout from "@/components/learning/LearningLayout";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 
 export default function DraftsPage() {
+  const { isFullAccess, isViewOnly, isSuperAdmin } = useModuleAccess("learning_training");
+  const canEdit = isFullAccess || isSuperAdmin;
   const [drafts, setDrafts] = useState<any[]>([]);
 
   useEffect(() => { fetchDrafts(); }, []);
@@ -56,12 +59,18 @@ export default function DraftsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-4">
-                    <button className="flex items-center px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm">
-                      <Edit2 className="w-4 h-4 mr-1.5" /> Continue
-                    </button>
-                    <button onClick={() => handleDelete(draft.id)} className="flex items-center px-3 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors text-sm">
-                      <Trash2 className="w-4 h-4 mr-1.5" /> Delete
-                    </button>
+                    {canEdit ? (
+                      <>
+                        <button className="flex items-center px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm">
+                          <Edit2 className="w-4 h-4 mr-1.5" /> Continue
+                        </button>
+                        <button onClick={() => handleDelete(draft.id)} className="flex items-center px-3 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors text-sm">
+                          <Trash2 className="w-4 h-4 mr-1.5" /> Delete
+                        </button>
+                      </>
+                    ) : isViewOnly ? (
+                      <span className="text-xs text-gray-500 italic">View only access</span>
+                    ) : null}
                   </div>
                 </div>
               </div>

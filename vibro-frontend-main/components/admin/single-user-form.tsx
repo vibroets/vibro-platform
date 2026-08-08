@@ -158,6 +158,8 @@ const MODULE_TEMPLATE: ModuleAccess[] = [
   { module: "learning_training", access: "no_access" },
   { module: "planner", access: "no_access" },
   { module: "attendance", access: "no_access" },
+  { module: "guides", access: "no_access" },
+  { module: "administration", access: "no_access" },
 ];
 // --- Main Component ---
 interface SingleUserFormProps {

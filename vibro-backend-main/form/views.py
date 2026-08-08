@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 from django.conf import settings
@@ -294,6 +294,7 @@ def _email_auto_shared_response_pdf(submission, actor, config, resolved_user_ids
 
             stage_access_qs = StageAccess.objects.select_related('allow_user', 'allow_group', 'form', 'stage')
             if form.form_type == FormType.AUDIT:
+                audit_group_qs = AuditGroup.objects.order_by('order')
                 qs = Form.objects.filter(pk=form.id).select_related(
                     'folder', 'form_admin', 'deletedBy', 'archivedBy'
                 ).prefetch_related(
@@ -305,6 +306,7 @@ def _email_auto_shared_response_pdf(submission, actor, config, resolved_user_ids
                     'audit_info__questions__logic_parent_question__logic_questions__options',
                     'audit_info__questions__logic_parent_question__follow_ups',
                     'audit_info__questions__logic_parent_question__follow_ups__task_close_questions__options',
+                    models.Prefetch('audit_group', queryset=audit_group_qs),
                     'audit_group__questions',
                     'audit_group__questions__options',
                     'audit_group__questions__child_questions',
@@ -886,6 +888,7 @@ class FormViewSet(userContextAPIView, ModelViewSet):
                 'audit_info__questions__logic_parent_question__logic_questions__options',
                 'audit_info__questions__logic_parent_question__follow_ups',
                 'audit_info__questions__logic_parent_question__follow_ups__task_close_questions__options',
+                models.Prefetch('audit_group', queryset=AuditGroup.objects.order_by('order')),
                 'audit_group__questions',
                 'audit_group__questions__options',
                 'audit_group__questions__child_questions',
@@ -963,10 +966,10 @@ class FormViewSet(userContextAPIView, ModelViewSet):
 
         if form_type == FormType.AUDIT:
             if requested_orders:
-                audit_group_qs = AuditGroup.objects.filter(order__in=requested_orders)
+                audit_group_qs = AuditGroup.objects.filter(order__in=requested_orders).order_by('order')
                 audit_info_qs = AuditInfo.objects.none()  # skip audit_info for partial loads
             else:
-                audit_group_qs = AuditGroup.objects.all()
+                audit_group_qs = AuditGroup.objects.all().order_by('order')
                 audit_info_qs = AuditInfo.objects.all()
 
             qs = base.prefetch_related(
@@ -8283,11 +8286,8 @@ class FormsInFolderView(userContextAPIView, APIView):
             ).annotate(
                 response_count=Subquery(
                     FormSubmision.objects.filter(
-                        form_id=OuterRef('pk')
-                    ).filter(
-                        Q(submission_initiated_stage__isnull=False) |
-                        Q(group_submissions_history__isnull=False) |
-                        Q(stage_submissions_history__isnull=False)
+                        form_id=OuterRef('pk'),
+                        is_completed=True
                     ).values('form_id').annotate(
                         c=Count('pk', distinct=True)
                     ).values('c')[:1],
@@ -8992,11 +8992,8 @@ class OrganizationFormsViewOptimized(APIView):
                 audit_group_count=Count('audit_group', distinct=True),
                 response_count=Subquery(
                     FormSubmision.objects.filter(
-                        form_id=OuterRef('pk')
-                    ).filter(
-                        Q(submission_initiated_stage__isnull=False) |
-                        Q(group_submissions_history__isnull=False) |
-                        Q(stage_submissions_history__isnull=False)
+                        form_id=OuterRef('pk'),
+                        is_completed=True
                     ).values('form_id').annotate(
                         c=Count('pk', distinct=True)
                     ).values('c')[:1],
@@ -9340,6 +9337,14 @@ class FormResponseView(APIView):
         else:
             form = get_object_or_404(Form, id=form_id, organization=organization)
             submissions = FormSubmision.objects.filter(id=submission_id, organization=organization)
+
+        # ===== FAST PATH: collaborative mode with group_id for audit forms =====
+        # Bypass FormSerializer entirely and use FormFastView's bulk .values() approach.
+        # This avoids serializing all 47 groups / 500+ questions when only 1 group is needed.
+        if group_id_param and form.form_type == FormType.AUDIT and requested_orders:
+            return self._fast_audit_response(request, form, submission_id, requested_orders, organization)
+
+        # ===== SLOW PATH: full FormSerializer (existing logic) =====
         
         # Initialize response data with form details
         response_data = FormSerializer(form, many=False, context={'request': request}).data
@@ -9596,6 +9601,215 @@ class FormResponseView(APIView):
                 })
 
             response_data['summary'] = summary
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    def _fast_audit_response(self, request, form, submission_id, requested_orders, organization):
+        """Fast path for collaborative mode: build response using bulk .values() queries
+        instead of FormSerializer. Only queries the one group needed, making loading instant
+        even for 500+ question forms."""
+
+        # 1. Build form structure using FormFastView's optimized method
+        fast_view = FormFastView()
+        audit_data = fast_view._build_audit_fast(form, requested_orders)
+
+        # 2. Base form fields (lightweight — no serializer)
+        response_data = {
+            'id': form.id,
+            'form_type': form.form_type,
+            'title': form.title,
+            'prefix': form.prefix,
+            'GPS': form.GPS,
+            'trigger_email_notifications': form.trigger_email_notifications,
+            'share_response': form.share_response,
+            'allow_editing': form.allow_editing,
+            'can_edit_previous_state': form.can_edit_previous_state,
+            'auto_share_response': form.auto_share_response,
+            'pass_percentage': form.pass_percentage,
+            'max_score': form.max_score,
+            'is_archived': form.is_archived if hasattr(form, 'is_archived') else False,
+            'is_deleted': form.is_deleted,
+            'is_disabled': form.is_disabled,
+            'folder': form.folder_id,
+            'folder_name': form.folder.name if form.folder else None,
+            'form_admin': form.form_admin_id,
+            'form_admin_display': fast_view._get_user_display(form.form_admin),
+            'created_at': form.created_at.isoformat() if form.created_at else None,
+            'updated_at': form.updated_at.isoformat() if form.updated_at else None,
+            'stages': [],
+            'audit_group': audit_data.get('audit_group', []),
+            'audit_info': audit_data.get('audit_info'),
+            'assignments': [],
+            'auto_share_config': None,
+        }
+
+        # 3. Fetch submission details
+        if organization:
+            submission = get_object_or_404(FormSubmision, id=submission_id, organization=organization)
+        else:
+            submission = get_object_or_404(FormSubmision, id=submission_id)
+
+        submissions_data = FormSubmissionSerializer(submission, context={'request': request}).data
+        completed_by_user = submission.completed_by
+        if completed_by_user:
+            full_name = f"{completed_by_user.first_name or ''} {completed_by_user.last_name or ''}".strip()
+            submissions_data['completed_by_details'] = {
+                "id": completed_by_user.id,
+                "name": full_name or completed_by_user.username or completed_by_user.email or "Unknown"
+            }
+        else:
+            submissions_data['completed_by_details'] = None
+        response_data['submissionsDetail'] = submissions_data
+
+        # 4. Collect all question IDs from the returned group(s) + audit_info
+        all_question_ids = []
+        # Audit info questions
+        if response_data.get('audit_info'):
+            for q in response_data['audit_info'].get('questions', []):
+                all_question_ids.append(q['id'])
+                for sub in q.get('sub_questions', []):
+                    all_question_ids.append(sub['id'])
+                for lg in q.get('logics', []):
+                    for lq in lg.get('logic_questions', []):
+                        all_question_ids.append(lq['id'])
+
+        # Audit group questions (including sub_questions and logic_questions)
+        def collect_question_ids(questions_list):
+            for q in questions_list:
+                all_question_ids.append(q['id'])
+                for sub in q.get('sub_questions', []):
+                    collect_question_ids([sub])
+                for lg in q.get('logics', []):
+                    for lq in lg.get('logic_questions', []):
+                        all_question_ids.append(lq['id'])
+
+        for group in response_data.get('audit_group', []):
+            collect_question_ids(group.get('questions', []))
+
+        # 5. Bulk fetch all answers for these questions in a single query
+        answers_qs = Answer.objects.filter(
+            question_id__in=all_question_ids,
+            submission_id=submission_id,
+            organization=organization
+        )
+        # Use AnswerSerializer for consistent formatting (handles option ID → text, etc.)
+        if answers_qs.exists():
+            answers_data = AnswerSerializer(answers_qs, many=True).data
+        else:
+            answers_data = []
+        answers_by_question = {}
+        for ans in answers_data:
+            qid = ans.get('question')
+            if qid is not None:
+                answers_by_question.setdefault(qid, []).append(ans)
+
+        def normalize_answer(qid):
+            ans_list = answers_by_question.get(qid, [])
+            if not ans_list:
+                return {}
+            return ans_list[0] if len(ans_list) == 1 else ans_list
+
+        # Helper: replace option IDs with text (same as slow path)
+        def replace_option_id_with_text(answers_data, options):
+            if not answers_data or not options:
+                return
+            if isinstance(answers_data, list):
+                for item in answers_data:
+                    replace_option_id_with_text(item, options)
+                return
+            if 'answer' in answers_data:
+                answer_value = answers_data['answer']
+                if answer_value:
+                    answer_str = str(answer_value).strip()
+                    if ',' in answer_str:
+                        ids = [id.strip() for id in answer_str.split(',') if id.strip()]
+                        replaced = []
+                        for id_val in ids:
+                            if id_val.isdigit():
+                                option_id = id_val
+                                found = False
+                                for opt in options:
+                                    if opt and str(opt.get('id', '')).strip() == option_id:
+                                        replaced.append(opt['option'])
+                                        found = True
+                                        break
+                                if not found:
+                                    replaced.append(id_val)
+                            else:
+                                replaced.append(id_val)
+                        answers_data['answer'] = ', '.join(replaced)
+                    elif answer_str.isdigit():
+                        option_id = answer_str
+                        for opt in options:
+                            if opt and str(opt.get('id', '')).strip() == option_id:
+                                answers_data['answer'] = opt['option']
+                                break
+
+        # 6. Attach answers to audit_info questions
+        if response_data.get('audit_info'):
+            for q in response_data['audit_info'].get('questions', []):
+                q['answers'] = normalize_answer(q['id'])
+                replace_option_id_with_text(q['answers'], q.get('options'))
+                for sub in q.get('sub_questions', []):
+                    sub['answers'] = normalize_answer(sub['id'])
+                    replace_option_id_with_text(sub['answers'], sub.get('options'))
+                for lg in q.get('logics', []):
+                    for lq in lg.get('logic_questions', []):
+                        lq['answers'] = normalize_answer(lq['id'])
+                        replace_option_id_with_text(lq['answers'], lq.get('options'))
+
+        # 7. Attach answers to audit_group questions
+        def attach_answers(questions_list):
+            for q in questions_list:
+                q['answers'] = normalize_answer(q['id'])
+                replace_option_id_with_text(q['answers'], q.get('options'))
+                for sub in q.get('sub_questions', []):
+                    attach_answers([sub])
+                for lg in q.get('logics', []):
+                    for lq in lg.get('logic_questions', []):
+                        lq['answers'] = normalize_answer(lq['id'])
+                        replace_option_id_with_text(lq['answers'], lq.get('options'))
+
+        for group in response_data.get('audit_group', []):
+            attach_answers(group.get('questions', []))
+
+        # 8. Add last completer name
+        last_completer = submission.completed_by
+        response_data['last_completer_name'] = f"{last_completer.first_name} {last_completer.last_name}" if last_completer else 'N/A'
+
+        # 9. Add audit summary (scores/percentages)
+        if organization:
+            histories = AuditFormSubmissionHistory.objects.filter(
+                form_submission=submission,
+                organization=organization
+            ).select_related('group_id', 'form_id', 'completed_by').order_by('group_id__order', 'id')
+        else:
+            histories = AuditFormSubmissionHistory.objects.filter(
+                form_submission=submission
+            ).select_related('group_id', 'form_id', 'completed_by').order_by('group_id__order', 'id')
+
+        summary = []
+        for history in histories:
+            summary.append({
+                "id": history.id,
+                "form_submission": history.form_submission_id,
+                "group_assignment_uuid": history.group_assignment_uuid,
+                "form_overall_status": history.form_overall_status,
+                "form_overall_score": str(history.form_overall_score) if history.form_overall_score is not None else None,
+                "form_critical_failed": history.form_critical_failed,
+                "groups_status": history.groups_status,
+                "group_score": str(history.group_score) if history.group_score is not None else None,
+                "form_id": history.form_id_id if history.form_id_id else form.id,
+                "form_title": history.form_id.title if history.form_id else form.title,
+                "group_id": history.group_id_id,
+                "group_name": history.group_id.name if history.group_id else None,
+                "group_uuid": history.group_id.group_uuid if history.group_id else None,
+                "group_order": history.group_id.order if history.group_id else None,
+                "completed_by_username": history.completed_by.username if history.completed_by else None,
+                "completed_by_email": history.completed_by.email if history.completed_by else None,
+                "completed_on": history.completed_on.isoformat() if history.completed_on else None,
+            })
+        response_data['summary'] = summary
 
         return Response(response_data, status=status.HTTP_200_OK)
 
@@ -10897,6 +11111,7 @@ class TriggerFollowupTasksView(APIView):
                 description=mobile_task_data.get('description', ''),
                 form=assigned_form,  # Mobile-selected form
                 followup_task_form_id=main_form,  # Main form that triggered this
+                form_submission=main_submission,
                 organization=main_submission.organization,
                 status='not_started',
                 start_date=start_date,
@@ -11276,6 +11491,7 @@ class TriggerFollowupTasksView(APIView):
                 form=assigned_form,
                 followup_task_form_id=main_form,
                 follow_task_sub_question=logic_followup.question,
+                form_submission=main_submission,
                 organization=main_submission.organization,
                 status='not_started',
                 start_date=start_date,
@@ -11732,7 +11948,21 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                 else:
                     reopened_close_q_data = close_q_data
 
-                all_followup_map[key].append({
+                # Check if this task was auto-closed via related task closure
+            is_auto_closed = False
+            try:
+                from task.models import TaskAuditLog as _TAL
+                is_auto_closed = _TAL.objects.filter(
+                    task=fut,
+                    task_action='Auto_Closed_Related_Task'
+                ).exists()
+            except Exception:
+                pass
+            closure_type = 'Auto-Closed' if is_auto_closed else 'Manual'
+            if is_auto_closed and 'Completed' in task_status and 'Auto Closed' not in task_status:
+                task_status = task_status + ' - Auto Closed'
+
+            all_followup_map[key].append({
                     'title': task_title,
                     'close_questions': reopened_close_q_data,
                     'source_type': source_type,
@@ -11743,30 +11973,65 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                     'reopen_reason': reopen_reason,
                     'followup_submission_id': followup_submission_id if not is_reopened else '',
                     'is_bulk_imported': fut.is_bulk_imported,
+                    'closure_type': closure_type,
                 })
 
-    # ---- FIRST PASS (B): collect all unique logic question texts ----
+    # ---- FIRST PASS (B): collect all unique logic question texts and audit_info columns ----
     # Only collect logic-triggered questions (conditional on answer), NOT regular sub-questions
     # Skip texts that match base columns (Image, Remarks) - those are merged into base columns
     base_col_texts = {'image', 'remarks'}
     dynamic_subq_headers = []
     dynamic_subq_seen = set()
+    # Collect audit_info question headers dynamically (excluding Audited Location which is hardcoded)
+    dynamic_audit_info_headers = []
+    dynamic_audit_info_seen = set()
 
     for response in responses:
         if response.get('stages'):
             for stage in response['stages']:
+                # Collect audit_info questions (skip Audited Location and Audit Guidelines)
                 if stage.get('is_audit_info') or stage.get('name') == 'Audit Info':
+                    if stage.get('questions'):
+                        for q in stage['questions']:
+                            q_text = (q.get('question') or '').strip()
+                            q_lower = q_text.lower()
+                            if q_text and q_lower not in dynamic_audit_info_seen \
+                                and 'audited location' not in q_lower \
+                                and 'audit guidelines' not in q_lower:
+                                dynamic_audit_info_seen.add(q_lower)
+                                dynamic_audit_info_headers.append(q_text)
                     continue
                 if stage.get('questions'):
                     for question in stage['questions']:
+                        for sub_q in question.get('sub_questions', []):
+                            sq_text = (sub_q.get('question') or '').strip()
+                            if sq_text.startswith('Observations #') or sq_text.startswith('Photo #'):
+                                continue
+                            if sq_text and sq_text.lower() not in dynamic_subq_seen and sq_text.lower() not in base_col_texts:
+                                dynamic_subq_seen.add(sq_text.lower())
+                                dynamic_subq_headers.append(sq_text)
                         for logic in question.get('logics', []):
                             for logic_q in logic.get('logic_questions', []):
                                 lq_text = logic_q.get('question', '').strip()
+                                if lq_text.startswith('Observations #') or lq_text.startswith('Photo #'):
+                                    continue
                                 if lq_text and lq_text.lower() not in dynamic_subq_seen and lq_text.lower() not in base_col_texts:
                                     dynamic_subq_seen.add(lq_text.lower())
                                     dynamic_subq_headers.append(lq_text)
 
     # ---- BUILD DYNAMIC HEADERS ----
+    # Audit-specific columns only included for audit forms
+    audit_only_headers = []
+    if is_audit:
+        audit_only_headers = [
+            'Overall Status',
+            'Total Score (%)',
+            'Task Completion (%)',
+            'Overdue Tasks (%)',
+            'Reopened Tasks (%)',
+            'Audited Location',
+        ] + dynamic_audit_info_headers
+
     base_headers = [
         'Response ID',
         'Submission Date',
@@ -11776,14 +12041,7 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
         'Status',
         'Form Title',
         'Form Type',
-        'Overall Status',
-        'Total Score (%)',
-        'Task Completion (%)',
-        'Overdue Tasks (%)',
-        'Reopened Tasks (%)',
-        'Audited Location',
-        'Ambient Temperature',
-        'Total Production',
+    ] + audit_only_headers + [
         'Source Type',
         'Source ID',
         'Group Title',
@@ -11801,6 +12059,7 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
         'Followup Task ID',
         'Followup Deadline',
         'Followup Task Status',
+        'Closure Type',
         'Reopen Reason',
         'Followup Response Submission ID',
     ]
@@ -11818,6 +12077,20 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
 
     # ---- SECOND PASS: build rows ----
     rows = []
+
+    # Precompute which submissions were created via bulk import (checked directly on the
+    # submission, so it works even for rows/questions with no followup task attached)
+    bulk_imported_submission_ids = set()
+    try:
+        all_response_ids = [r.get('id') for r in responses if r.get('id')]
+        if all_response_ids:
+            bulk_imported_submission_ids = set(
+                FormSubmision.objects.filter(
+                    id__in=all_response_ids, is_bulk_imported=True
+                ).values_list('id', flat=True)
+            )
+    except Exception:
+        pass
 
     for response in responses:
         response_id = response.get('id', 'N/A')
@@ -11876,25 +12149,28 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
         overall_status = audit_history.form_overall_status if audit_history else 'N/A'
         total_score = str(audit_history.form_overall_score) if audit_history and audit_history.form_overall_score is not None else 'N/A'
 
-        # Extract audit info answers (Audited Location, Ambient Temperature, Total Production)
+        # Extract audit info answers dynamically
         audited_location = ''
-        ambient_temperature = ''
-        total_production = ''
+        audit_info_answers_map = {}  # question_text_lower -> answer
 
         if response.get('stages'):
             for stage in response['stages']:
                 if (stage.get('is_audit_info') or stage.get('name') == 'Audit Info') and stage.get('questions'):
                     for q in stage['questions']:
-                        q_text = q.get('question', '').strip().lower()
+                        q_text = q.get('question', '').strip()
+                        q_text_lower = q_text.lower()
                         q_answer = ''
                         if q.get('answers') and q['answers'].get('answer'):
                             q_answer = str(q['answers']['answer'])
-                        if 'audited location' in q_text or q_text == 'audited location':
+                        if 'audited location' in q_text_lower:
                             audited_location = q_answer
-                        elif 'ambient temperature' in q_text or q_text == 'ambient temperature':
-                            ambient_temperature = q_answer
-                        elif 'total production' in q_text or q_text == 'total production':
-                            total_production = q_answer
+                        elif 'audit guidelines' not in q_text_lower:
+                            audit_info_answers_map[q_text_lower] = q_answer
+
+        # Build audit_info_values in the same order as dynamic_audit_info_headers
+        audit_info_values = []
+        for h in dynamic_audit_info_headers:
+            audit_info_values.append((h, audit_info_answers_map.get(h.lower(), '')))
 
         # Process stages and questions
         if response.get('stages'):
@@ -11912,6 +12188,12 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                         answer_obj = question.get('answers', {})
                         answer_val = answer_obj.get('answer', '') if answer_obj else ''
                         remarks = answer_obj.get('remarks', '') if answer_obj else ''
+
+                        # Skip questions that have no answer and no followup task
+                        # (only show questions that were actually answered)
+                        has_followup = (response_id, q_id) in all_followup_map
+                        if not answer_val and not has_followup:
+                            continue
 
                         # Extract image URLs and text answer from main question
                         image_urls = extract_image_urls(answer_val) if answer_val else ''
@@ -11938,6 +12220,9 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                             elif sub_q_lower == 'remarks':
                                 if sub_answer_val:
                                     logic_remarks = logic_remarks + ('; ' if logic_remarks else '') + str(sub_answer_val)
+                            else:
+                                if sub_answer_val or sub_q_text not in subq_answers:
+                                    subq_answers[sub_q_text] = str(sub_answer_val) if sub_answer_val else ''
 
                         # Check logic questions (conditional on answer option selected)
                         for logic in question.get('logics', []):
@@ -11961,13 +12246,16 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                                     urls = extract_image_urls(lq_answer_val) if lq_answer_val else ''
                                     if urls and not image_urls:
                                         image_urls = urls
-                                    subq_answers[lq_text] = urls
+                                    if urls:
+                                        subq_answers[lq_text] = urls
                                 elif 'remark' in lq_lower:
                                     if lq_answer_val:
                                         logic_remarks = logic_remarks + ('; ' if logic_remarks else '') + str(lq_answer_val)
-                                    subq_answers[lq_text] = str(lq_answer_val) if lq_answer_val else ''
+                                    if lq_answer_val or lq_text not in subq_answers:
+                                        subq_answers[lq_text] = str(lq_answer_val) if lq_answer_val else ''
                                 else:
-                                    subq_answers[lq_text] = str(lq_answer_val) if lq_answer_val else ''
+                                    if lq_answer_val or lq_text not in subq_answers:
+                                        subq_answers[lq_text] = str(lq_answer_val) if lq_answer_val else ''
 
                         # Use logic remarks if main question has no remarks
                         final_remarks = remarks or logic_remarks
@@ -11986,8 +12274,9 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                             fut_metadata_cols[0] = first_fut['task_id']
                             fut_metadata_cols[1] = first_fut['deadline']
                             fut_metadata_cols[2] = first_fut['task_status']
-                            fut_metadata_cols[3] = first_fut['reopen_reason']
-                            fut_metadata_cols[4] = first_fut['followup_submission_id']
+                            fut_metadata_cols[3] = first_fut.get('closure_type', 'Manual')
+                            fut_metadata_cols[4] = first_fut['reopen_reason']
+                            fut_metadata_cols[5] = first_fut['followup_submission_id']
 
                             close_qs = first_fut['close_questions']
                             for idx, cq in enumerate(close_qs):
@@ -12009,12 +12298,15 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                                 extra_statuses = '; '.join([f['task_status'] for f in followup_data_list[1:] if f['task_status']])
                                 if extra_statuses:
                                     fut_metadata_cols[2] = fut_metadata_cols[2] + '; ' + extra_statuses
+                                extra_closure_types = '; '.join([f.get('closure_type', 'Manual') for f in followup_data_list[1:] if f.get('closure_type')])
+                                if extra_closure_types:
+                                    fut_metadata_cols[3] = fut_metadata_cols[3] + '; ' + extra_closure_types
                                 extra_reopen_reasons = '; '.join([f['reopen_reason'] for f in followup_data_list[1:] if f['reopen_reason']])
                                 if extra_reopen_reasons:
-                                    fut_metadata_cols[3] = fut_metadata_cols[3] + '; ' + extra_reopen_reasons
+                                    fut_metadata_cols[4] = fut_metadata_cols[4] + '; ' + extra_reopen_reasons
                                 extra_sub_ids = '; '.join([f['followup_submission_id'] for f in followup_data_list[1:] if f['followup_submission_id']])
                                 if extra_sub_ids:
-                                    fut_metadata_cols[4] = fut_metadata_cols[4] + '; ' + extra_sub_ids
+                                    fut_metadata_cols[5] = fut_metadata_cols[5] + '; ' + extra_sub_ids
 
                         # Build the row - metadata columns repeat on every question row
                         # Source Type and Source ID come from followup data if available, else from planner lookup
@@ -12041,8 +12333,33 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                                 row_source_type = 'Form'
                                 row_source_id = str(form_id)
 
-                        # Determine if this submission has bulk-imported tasks
-                        row_imported = 'Yes' if (followup_data_list and any(f.get('is_bulk_imported') for f in followup_data_list)) else 'No'
+                        # Determine if this submission was bulk-imported.
+                        # Primary check: submission itself is flagged as bulk-imported.
+                        # Fallback (legacy data): followup data or task flagged as bulk-imported.
+                        row_imported = 'No'
+                        if response_id in bulk_imported_submission_ids:
+                            row_imported = 'Yes'
+                        elif followup_data_list and any(f.get('is_bulk_imported') for f in followup_data_list):
+                            row_imported = 'Yes'
+                        else:
+                            try:
+                                from task.models import Task as TaskModel
+                                if TaskModel.objects.filter(form_submission_id=response_id, is_bulk_imported=True).exists():
+                                    row_imported = 'Yes'
+                            except Exception:
+                                pass
+
+                        # Build audit-specific row values (only for audit forms)
+                        audit_row_vals = []
+                        if is_audit:
+                            audit_row_vals = [
+                                overall_status,
+                                total_score,
+                                task_completion_pct,
+                                overdue_pct,
+                                reopened_pct,
+                                audited_location,
+                            ] + [v for _, v in audit_info_values]
 
                         if is_first_row:
                             row = [
@@ -12054,14 +12371,7 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                                 'Completed' if response.get('is_completed', False) else 'Pending',
                                 form_info.get('title', f'Form {form_id}'),
                                 form_info.get('form_type', 'N/A'),
-                                overall_status if is_audit else '',
-                                total_score if is_audit else '',
-                                task_completion_pct if is_audit else '',
-                                overdue_pct if is_audit else '',
-                                reopened_pct if is_audit else '',
-                                audited_location,
-                                ambient_temperature,
-                                total_production,
+                            ] + audit_row_vals + [
                                 row_source_type,
                                 row_source_id,
                                 row_imported,
@@ -12082,14 +12392,7 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                                 'Completed' if response.get('is_completed', False) else 'Pending',
                                 form_info.get('title', f'Form {form_id}'),
                                 form_info.get('form_type', 'N/A'),
-                                overall_status if is_audit else '',
-                                total_score if is_audit else '',
-                                task_completion_pct if is_audit else '',
-                                overdue_pct if is_audit else '',
-                                reopened_pct if is_audit else '',
-                                audited_location,
-                                ambient_temperature,
-                                total_production,
+                            ] + audit_row_vals + [
                                 row_source_type,
                                 row_source_id,
                                 row_imported,
@@ -12116,14 +12419,26 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                     row_source_id = planner_sub.planner_assignment.order_id or str(planner_sub.planner_assignment_id)
             except Exception:
                 pass
-            # Check if any task for this submission is bulk imported
-            meta_imported = 'No'
+            # Check if this submission was bulk imported
+            meta_imported = 'Yes' if response_id in bulk_imported_submission_ids else 'No'
             try:
                 from task.models import Task as TaskModel
-                if TaskModel.objects.filter(form_submission_id=response_id, is_bulk_imported=True).exists():
+                if meta_imported == 'No' and TaskModel.objects.filter(form_submission_id=response_id, is_bulk_imported=True).exists():
                     meta_imported = 'Yes'
             except Exception:
                 pass
+            # Build audit-specific row values (only for audit forms)
+            audit_row_vals = []
+            if is_audit:
+                audit_row_vals = [
+                    overall_status,
+                    total_score,
+                    task_completion_pct,
+                    overdue_pct,
+                    reopened_pct,
+                    audited_location,
+                ] + [v for _, v in audit_info_values]
+
             row = [
                 display_response_id,
                 response.get('submission_initiated_on', 'N/A'),
@@ -12133,18 +12448,11 @@ def generate_csv_with_followup_data(responses, form_info, form_id, organization)
                 'Completed' if response.get('is_completed', False) else 'Pending',
                 form_info.get('title', f'Form {form_id}'),
                 form_info.get('form_type', 'N/A'),
-                overall_status if is_audit else '',
-                total_score if is_audit else '',
-                task_completion_pct if is_audit else '',
-                overdue_pct if is_audit else '',
-                reopened_pct if is_audit else '',
-                audited_location,
-                ambient_temperature,
-                total_production,
+            ] + audit_row_vals + [
                 row_source_type,
                 row_source_id,
                 meta_imported,
-            ] + [''] * (len(base_headers) - 19) + [''] * num_metadata_cols + [''] * num_followup_cols
+            ] + [''] * (len(base_headers) - len(audit_row_vals) - 11) + [''] * num_metadata_cols + [''] * num_followup_cols
             rows.append(row)
 
     return {
@@ -12811,6 +13119,9 @@ class FormResponseFollowupTableView(APIView):
                         for s in val.split('; '):
                             s = s.strip()
                             if s:
+                                # Normalize 'Completed - Auto Closed' to 'Completed' for chart
+                                if 'Completed' in s:
+                                    s = 'Completed'
                                 fut_status_counts[s] = fut_status_counts.get(s, 0) + 1
 
             total_followups = sum(fut_status_counts.values()) if fut_status_counts else 0
@@ -12980,6 +13291,8 @@ class BulkImportResponsesFollowupView(APIView):
             if isinstance(assign_group_ids, str):
                 assign_group_ids = [int(x) for x in assign_group_ids.split(',') if x.strip()]
 
+            validate_only = str(request.data.get('validate_only', '')).lower() in ('true', '1', 'yes')
+
             df = pd.read_excel(excel_file, engine='openpyxl')
             df.columns = [str(c).strip() for c in df.columns]
 
@@ -13070,9 +13383,10 @@ class BulkImportResponsesFollowupView(APIView):
 
             df = df.fillna('')
 
-            for fill_col in ['Audited Location', 'Source ID', 'Source Type']:
-                if fill_col in df.columns:
-                    df[fill_col] = df[fill_col].replace('', pd.NA).ffill().fillna('')
+            for fill_col in ['Audited Location', 'Source ID', 'Source Type'] + list(audit_info_questions.values()):
+                fill_col_name = fill_col if isinstance(fill_col, str) else fill_col.question
+                if fill_col_name in df.columns:
+                    df[fill_col_name] = df[fill_col_name].replace('', pd.NA).ffill().fillna('')
 
             if 'Response ID' in df.columns and df['Response ID'].astype(str).str.strip().any():
                 df['_group_key'] = df['Response ID'].astype(str).str.strip()
@@ -13091,9 +13405,114 @@ class BulkImportResponsesFollowupView(APIView):
             created_answers = 0
             created_tasks = 0
             errors = []
+            warnings = []
 
             first_stage = Stage.objects.filter(form_id=form_id).order_by('order').first()
             form_prefix = form.prefix or 'NPX'
+
+            # ---- PRE-IMPORT VALIDATION: Followup Deadline before Submission Date ----
+            # Scan all rows and auto-correct any deadline that is earlier than the
+            # submission date. This prevents tasks from being invisible in the mobile
+            # app (which filters out tasks whose deadline has already passed).
+            DEFAULT_DEADLINE_OFFSET_DAYS = 7
+            if 'Followup Deadline' in df.columns and 'Submission Date' in df.columns:
+                for idx, row in df.iterrows():
+                    deadline_raw = str(row.get('Followup Deadline', '')).strip()
+                    sub_date_raw = str(row.get('Submission Date', '')).strip()
+                    if not deadline_raw or deadline_raw == 'nan' or not sub_date_raw or sub_date_raw == 'nan':
+                        continue
+
+                    # Parse submission date
+                    sub_dt = None
+                    for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%d-%m-%Y %H:%M', '%d/%m/%Y %H:%M']:
+                        try:
+                            sub_dt = datetime.strptime(sub_date_raw, fmt)
+                            break
+                        except ValueError:
+                            continue
+                    if not sub_dt:
+                        try:
+                            sub_dt = pd.to_datetime(sub_date_raw).to_pydatetime()
+                        except Exception:
+                            continue
+
+                    # Parse deadline
+                    dl_dt = None
+                    for fmt in ['%d-%b-%Y %I:%M %p', '%Y-%m-%d %H:%M:%S', '%d-%m-%Y %H:%M']:
+                        try:
+                            dl_dt = datetime.strptime(deadline_raw, fmt)
+                            break
+                        except ValueError:
+                            continue
+                    if not dl_dt:
+                        try:
+                            dl_dt = pd.to_datetime(deadline_raw).to_pydatetime()
+                        except Exception:
+                            continue
+
+                    if dl_dt and sub_dt:
+                        # Normalize timezone-awareness: strip tzinfo for comparison
+                        sub_dt_cmp = sub_dt.replace(tzinfo=None) if sub_dt.tzinfo else sub_dt
+                        dl_dt_cmp = dl_dt.replace(tzinfo=None) if dl_dt.tzinfo else dl_dt
+                        if dl_dt_cmp < sub_dt_cmp:
+                            # Auto-correct: set deadline to submission_date + 7 days
+                            corrected_dt = sub_dt_cmp + timedelta(days=DEFAULT_DEADLINE_OFFSET_DAYS)
+                            corrected_str = corrected_dt.strftime('%d-%b-%Y %I:%M %p')
+                            df.at[idx, 'Followup Deadline'] = corrected_str
+
+                            # Collect warning details
+                            item_name = str(row.get('Item', '')).strip()
+                            item_str = item_name[:40] if item_name and item_name != 'nan' else f'Row {idx + 2}'
+                            warnings.append({
+                                'row': idx + 2,
+                                'item': item_str,
+                                'original_deadline': deadline_raw,
+                                'corrected_deadline': corrected_str,
+                                'submission_date': sub_date_raw,
+                                'message': f"Followup Deadline '{deadline_raw}' was before Submission Date '{sub_date_raw}' for '{item_str}'. Auto-corrected to '{corrected_str}' (+{DEFAULT_DEADLINE_OFFSET_DAYS} days from submission)."
+                            })
+
+            # ---- EXTRA VALIDATION: Check question matching and followup titles ----
+            if 'Item' in df.columns:
+                for idx, row in df.iterrows():
+                    item_name = str(row.get('Item', '')).strip()
+                    if not item_name or item_name == 'nan':
+                        continue
+                    item_lower = item_name.strip().lower()
+                    if item_lower not in question_text_map:
+                        errors.append({
+                            'row': idx + 2,
+                            'item': item_name[:40],
+                            'field': 'Item',
+                            'message': f"Question '{item_name[:40]}' not found in form. It will be skipped during import."
+                        })
+
+            if 'Follow up action Title' in df.columns and 'Response' in df.columns:
+                for idx, row in df.iterrows():
+                    response_val = str(row.get('Response', '')).strip()
+                    followup_title = str(row.get('Follow up action Title', '')).strip()
+                    if response_val and response_val.lower() in ('nc', 'no', 'non-compliant') and (not followup_title or followup_title == 'nan'):
+                        item_name = str(row.get('Item', '')).strip()
+                        item_str = item_name[:40] if item_name and item_name != 'nan' else f'Row {idx + 2}'
+                        errors.append({
+                            'row': idx + 2,
+                            'item': item_str,
+                            'field': 'Follow up action Title',
+                            'message': f"NC response for '{item_str}' but no Follow up action Title provided. No task will be created."
+                        })
+
+            total_rows = len(df)
+            valid_rows = total_rows - len([e for e in errors if e.get('field') == 'Item'])
+
+            if validate_only:
+                return Response({
+                    "total_rows": total_rows,
+                    "valid_rows": valid_rows,
+                    "errors": errors[:50],
+                    "total_errors": len(errors),
+                    "warnings": warnings[:50],
+                    "total_warnings": len(warnings),
+                }, status=status.HTTP_200_OK)
 
             for group_key, group_df in df.groupby('_group_key', sort=False):
                 if not group_key or group_key == 'nan':
@@ -13148,15 +13567,48 @@ class BulkImportResponsesFollowupView(APIView):
                     completed_by=initiated_by_user,
                     completed_on=submission_date,
                     organization=org,
+                    is_bulk_imported=True,
                 )
                 FormSubmision.objects.filter(id=submission.id).update(submission_initiated_on=submission_date)
                 created_submissions += 1
 
-                audit_metadata_cols = {
-                    'Audited Location': 'audited location',
-                    'Ambient Temperature': 'ambient temperature',
-                    'Total Production': 'total production',
-                }
+                # Handle "Audited Location" — match against org's Locations, not form dropdowns
+                audited_location = str(first_row.get('Audited Location', '')).strip()
+                if audited_location == 'nan':
+                    audited_location = ''
+                if audited_location and form.form_type == FormType.AUDIT:
+                    from user.models import Locations
+                    loc_match = Locations.objects.filter(
+                        name__iexact=audited_location,
+                        organization=org
+                    ).first()
+                    loc_answer_val = loc_match.name if loc_match else audited_location
+                    # Find the "Audited Location" audit info question
+                    audited_loc_q = None
+                    for ai_q_text, ai_q_obj in audit_info_questions.items():
+                        if 'audited location' in ai_q_text:
+                            audited_loc_q = ai_q_obj
+                            break
+                    if audited_loc_q:
+                        Answer.objects.create(
+                            Form=form,
+                            stage=None,
+                            question=audited_loc_q,
+                            question_type=audited_loc_q.question_type,
+                            user=initiated_by_user,
+                            answer=loc_answer_val,
+                            submitted_by=initiated_by_user,
+                            submission=submission,
+                            organization=org,
+                        )
+                        created_answers += 1
+
+                # Build audit_metadata_cols dynamically from the form's audit_info questions
+                audit_metadata_cols = {}
+                for ai_q_text, ai_q_obj in audit_info_questions.items():
+                    if 'audit guidelines' not in ai_q_text and 'audited location' not in ai_q_text:
+                        # Use the original question text as column name
+                        audit_metadata_cols[ai_q_obj.question] = ai_q_text
                 for col_name, q_key in audit_metadata_cols.items():
                     col_val = str(first_row.get(col_name, '')).strip()
                     if col_val and col_val != 'nan':
@@ -13186,7 +13638,7 @@ class BulkImportResponsesFollowupView(APIView):
                 total_score_val = str(first_row.get('Total Score (%)', '')).strip()
                 if total_score_val == 'nan':
                     total_score_val = ''
-                if overall_status_val or total_score_val:
+                if overall_status_val or total_score_val or form.form_type == FormType.AUDIT:
                     try:
                         AuditFormSubmissionHistory.objects.create(
                             form_submission=submission,
@@ -13211,7 +13663,7 @@ class BulkImportResponsesFollowupView(APIView):
                 if audited_location == 'nan':
                     audited_location = ''
 
-                if source_type_val.lower() == 'planner':
+                if source_type_val.lower() == 'planner' or (not source_type_val and source_id_val and source_id_val != str(form_id)):
                     try:
                         from planner.models import PlannerSubmission, PlannerAssignment
                         import uuid
@@ -13241,6 +13693,7 @@ class BulkImportResponsesFollowupView(APIView):
                                 form=form,
                                 user=initiated_by_user,
                                 location=loc_obj,
+                                organization=org,
                                 start_date=submission_date,
                                 end_date=submission_date,
                                 is_completed=True,
@@ -13276,7 +13729,15 @@ class BulkImportResponsesFollowupView(APIView):
                             stage_obj = audit_groups_map.get(group_title.lower())
 
                     q_key = item_text.lower()
+                    q_key_norm = ' '.join(q_key.split())
                     question_obj = question_text_map.get(q_key)
+
+                    # Try normalized match (collapse whitespace/newlines)
+                    if not question_obj:
+                        for map_key, map_q in question_text_map.items():
+                            if ' '.join(map_key.split()) == q_key_norm:
+                                question_obj = map_q
+                                break
 
                     if not question_obj and group_title:
                         stage_key = group_title.lower()
@@ -13295,13 +13756,90 @@ class BulkImportResponsesFollowupView(APIView):
                                 question_obj = map_q
                                 break
 
+                    # Final fallback: normalized substring match
                     if not question_obj:
-                        errors.append(f"Could not match question: '{item_text}' in response {group_key}")
-                        continue
+                        for map_key, map_q in question_text_map.items():
+                            mk_norm = ' '.join(map_key.split())
+                            if q_key_norm in mk_norm or mk_norm in q_key_norm:
+                                question_obj = map_q
+                                break
+
+                    if not question_obj:
+                        # Question not found in form — create a new one for import
+                        import uuid as _uuid
+                        if form.form_type == FormType.AUDIT:
+                            # Find or create audit group by Group Title
+                            ag_obj = None
+                            if group_title:
+                                ag_obj = audit_groups_map.get(group_title.lower())
+                            if not ag_obj:
+                                # Create new AuditGroup
+                                max_order = AuditGroup.objects.filter(form_id=form_id).aggregate(m=Max('order'))['m'] or 0
+                                ag_obj = AuditGroup.objects.create(
+                                    name=group_title or 'Imported Group',
+                                    form=form,
+                                    order=max_order + 1,
+                                    group_uuid=_uuid.uuid4().hex[:16],
+                                    organization=org,
+                                )
+                                audit_groups_map[ag_obj.name.strip().lower()] = ag_obj
+                            # Create new Question in this audit group
+                            max_q_order = Question.objects.filter(form_id=form_id, audit_group=ag_obj).aggregate(m=Max('order'))['m'] or 0
+                            question_obj = Question.objects.create(
+                                form=form,
+                                audit_group=ag_obj,
+                                question_uuid=_uuid.uuid4().hex[:16],
+                                question=item_text,
+                                question_type=QuestionType.AUDIT,
+                                order=max_q_order + 1,
+                                organization=org,
+                            )
+                        else:
+                            # Standard/Location form — find or create stage
+                            st_obj = None
+                            if group_title:
+                                st_obj = stages_map.get(group_title.lower())
+                            if not st_obj:
+                                max_order = Stage.objects.filter(form_id=form_id).aggregate(m=Max('order'))['m'] or 0
+                                st_obj = Stage.objects.create(
+                                    name=group_title or 'Imported Stage',
+                                    form=form,
+                                    order=max_order + 1,
+                                    stage_uuid=_uuid.uuid4().hex[:16],
+                                    organization=org,
+                                )
+                                stages_map[st_obj.name.strip().lower()] = st_obj
+                            max_q_order = Question.objects.filter(form_id=form_id, stage=st_obj).aggregate(m=Max('order'))['m'] or 0
+                            question_obj = Question.objects.create(
+                                form=form,
+                                stage=st_obj,
+                                question_uuid=_uuid.uuid4().hex[:16],
+                                question=item_text,
+                                question_type=QuestionType.SHORT_ANSWER,
+                                order=max_q_order + 1,
+                                organization=org,
+                            )
+                        # Add to maps so subsequent rows with same text find it
+                        question_text_map[item_text.lower()] = question_obj
+                        if group_title:
+                            stage_question_map[(group_title.lower(), item_text.lower())] = question_obj
+                        logger.info(f"BulkImport: Created new question '{item_text}' in group '{group_title}' for form {form_id}")
 
                     remarks = str(row.get('Remarks', '')).strip()
                     if remarks == 'nan':
                         remarks = ''
+
+                    # Merge "Image" column URLs back into the answer text
+                    # (export splits image URLs from answer into separate "Image" column)
+                    image_urls_val = str(row.get('Image', '')).strip() if 'Image' in df.columns else ''
+                    if image_urls_val == 'nan':
+                        image_urls_val = ''
+                    response_text_merged = response_text if response_text and response_text != 'nan' else ''
+                    if image_urls_val:
+                        if response_text_merged:
+                            response_text_merged = response_text_merged + '|' + image_urls_val
+                        else:
+                            response_text_merged = image_urls_val
 
                     answer = Answer.objects.create(
                         Form=form,
@@ -13309,7 +13847,7 @@ class BulkImportResponsesFollowupView(APIView):
                         question=question_obj,
                         question_type=question_obj.question_type,
                         user=initiated_by_user,
-                        answer=response_text if response_text and response_text != 'nan' else '',
+                        answer=response_text_merged,
                         submitted_by=initiated_by_user,
                         submission=submission,
                         organization=org,
@@ -13381,6 +13919,51 @@ class BulkImportResponsesFollowupView(APIView):
                                 organization=org,
                             )
                             created_answers += 1
+
+                    # Fallback: create child answers for known sub-question columns
+                    # even if no matching logic sub-question exists in the form.
+                    # This makes import independent of the form's dropdown/logic configuration.
+                    sub_q_columns = [
+                        ('Consumed from (or) Reason for not Closing', 'Consumed from (or) Reason for not Closing'),
+                        ('SAP Code (or) Product Name', 'SAP Code (or) Product Name'),
+                        ('Quantity', 'Quantity'),
+                        ('After Image', 'After Image'),
+                    ]
+                    matched_child_texts = set(all_child_qs.keys())
+                    for col_name, child_q_text in sub_q_columns:
+                        if col_name not in df.columns:
+                            continue
+                        # Skip if this column was already handled by an existing child question
+                        if child_q_text.lower() in matched_child_texts:
+                            continue
+                        val = str(row.get(col_name, '')).strip()
+                        if not val or val == 'nan':
+                            continue
+                        # Create a new child question under the parent question
+                        import uuid as _uuid2
+                        child_q_obj_new = Question.objects.create(
+                            form=form,
+                            stage=question_obj.stage if question_obj.stage else None,
+                            audit_group=question_obj.audit_group if question_obj.audit_group else None,
+                            question_uuid=_uuid2.uuid4().hex[:16],
+                            question=child_q_text,
+                            question_type=QuestionType.SHORT_ANSWER,
+                            parent_question=question_obj,
+                            order=999,
+                            organization=org,
+                        )
+                        Answer.objects.create(
+                            Form=form,
+                            stage=child_q_obj_new.stage if child_q_obj_new.stage else (stage_obj if isinstance(stage_obj, Stage) else None),
+                            question=child_q_obj_new,
+                            question_type=child_q_obj_new.question_type,
+                            user=initiated_by_user,
+                            answer=val,
+                            submitted_by=initiated_by_user,
+                            submission=submission,
+                            organization=org,
+                        )
+                        created_answers += 1
 
                     followup_title = str(row.get('Follow up action Title', '')).strip()
                     if followup_title and followup_title != 'nan':
@@ -13627,6 +14210,8 @@ class BulkImportResponsesFollowupView(APIView):
                 "created_tasks": created_tasks,
                 "errors": errors[:20],
                 "total_errors": len(errors),
+                "warnings": warnings[:20],
+                "total_warnings": len(warnings),
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
@@ -13650,44 +14235,14 @@ class DownloadImportTemplateView(APIView):
             if not form:
                 return Response({"error": "Form not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            # ---- Build dynamic headers matching generate_csv_with_followup_data ----
-            base_headers = [
-                'Response ID',
-                'Submission Date',
-                'Initiated By',
-                'Designation',
-                'Department',
-                'Status',
-                'Form Title',
-                'Form Type',
-                'Overall Status',
-                'Total Score (%)',
-                'Task Completion (%)',
-                'Overdue Tasks (%)',
-                'Reopened Tasks (%)',
-                'Audited Location',
-                'Ambient Temperature',
-                'Total Production',
-                'Source Type',
-                'Source ID',
-            ]
-
-            # Insert 'Imported' column after 'Source ID' (same as followup table)
-            base_headers.insert(base_headers.index('Source ID') + 1, 'Imported')
-
-            base_headers += [
-                'Group Title',
-                'Item',
-                'Response',
-                'Image',
-                'Remarks',
-            ]
-
             # ---- Dynamically collect sub-question/logic question texts from form schema ----
             # Skip texts that match base columns (Image, Remarks) - those are merged into base columns
             base_col_texts = {'image', 'remarks'}
             dynamic_subq_headers = []
             dynamic_subq_seen = set()
+            # Collect audit_info question headers dynamically
+            dynamic_audit_info_headers = []
+            dynamic_audit_info_seen = set()
 
             try:
                 # Build form schema using same prefetch logic as FormResponseFollowupTableView
@@ -13750,13 +14305,38 @@ class DownloadImportTemplateView(APIView):
                 optimized_instance = qs.get(pk=form.id)
                 formSchema = FormSerializer(optimized_instance, many=False).data
 
-                # Collect logic question texts from all stages (skip Image/Remarks - merged into base columns)
-                # Only logic-triggered questions, NOT regular sub-questions
+                # Collect audit_info question texts dynamically (skip Audited Location and Audit Guidelines)
+                # For audit forms, audit_info is a top-level dict (not in stages)
+                audit_info_data = formSchema.get('audit_info')
+                if isinstance(audit_info_data, dict) and audit_info_data.get('questions'):
+                    for q in audit_info_data['questions']:
+                        q_text = (q.get('question') or '').strip()
+                        q_lower = q_text.lower()
+                        if q_text and q_lower not in dynamic_audit_info_seen \
+                            and 'audited location' not in q_lower \
+                            and 'audit guidelines' not in q_lower:
+                            dynamic_audit_info_seen.add(q_lower)
+                            dynamic_audit_info_headers.append(q_text)
+
+                # Also check stages for audit info (for non-audit forms that may have audit info stages)
                 for stage in formSchema.get('stages', []):
+                    if stage.get('is_audit_info') or stage.get('name') == 'Audit Info':
+                        if stage.get('questions'):
+                            for q in stage['questions']:
+                                q_text = (q.get('question') or '').strip()
+                                q_lower = q_text.lower()
+                                if q_text and q_lower not in dynamic_audit_info_seen \
+                                    and 'audited location' not in q_lower \
+                                    and 'audit guidelines' not in q_lower:
+                                    dynamic_audit_info_seen.add(q_lower)
+                                    dynamic_audit_info_headers.append(q_text)
+                        continue
                     for question in stage.get('questions', []):
                         for logic in question.get('logics', []):
                             for logic_q in logic.get('logic_questions', []):
                                 lq_text = (logic_q.get('question') or '').strip()
+                                if lq_text.startswith('Observations #') or lq_text.startswith('Photo #'):
+                                    continue
                                 if lq_text and lq_text.lower() not in dynamic_subq_seen and lq_text.lower() not in base_col_texts:
                                     dynamic_subq_seen.add(lq_text.lower())
                                     dynamic_subq_headers.append(lq_text)
@@ -13767,18 +14347,63 @@ class DownloadImportTemplateView(APIView):
                         for logic in question.get('logics', []):
                             for logic_q in logic.get('logic_questions', []):
                                 lq_text = (logic_q.get('question') or '').strip()
+                                if lq_text.startswith('Observations #') or lq_text.startswith('Photo #'):
+                                    continue
                                 if lq_text and lq_text.lower() not in dynamic_subq_seen and lq_text.lower() not in base_col_texts:
                                     dynamic_subq_seen.add(lq_text.lower())
                                     dynamic_subq_headers.append(lq_text)
             except Exception as e:
                 logger.warning(f"DownloadImportTemplateView: Error collecting dynamic sub-questions: {e}")
 
+            # ---- Build dynamic headers ----
+            # Template only includes columns the user needs to fill in.
+            # Calculation columns (Overall Status, Total Score %, etc.) and auto-generate
+            # columns (Source ID, Followup Task ID, etc.) are NOT in the template.
+            is_audit = form.form_type == FormType.AUDIT
+            audit_input_headers = []
+            if is_audit:
+                audit_input_headers = ['Audited Location'] + dynamic_audit_info_headers
+
+            base_headers = [
+                'Response ID',
+                'Submission Date',
+                'Initiated By',
+                'Designation',
+                'Department',
+                'Status',
+                'Form Title',
+                'Form Type',
+            ] + audit_input_headers + [
+                'Source Type',
+                'Source ID',
+                'Imported',
+                'Group Title',
+                'Item',
+                'Response',
+                'Image',
+                'Remarks',
+            ]
             base_headers += dynamic_subq_headers
+
+            # Add fallback sub-question columns that may not exist in the form schema
+            # but are commonly used in imports (e.g. old data with different dropdown options)
+            fallback_subq_headers = [
+                'Consumed from (or) Reason for not Closing',
+                'SAP Code (or) Product Name',
+                'Quantity',
+                'After Image',
+            ]
+            existing_lower = {h.lower() for h in base_headers}
+            for fb_h in fallback_subq_headers:
+                if fb_h.lower() not in existing_lower:
+                    base_headers.append(fb_h)
+                    existing_lower.add(fb_h.lower())
 
             metadata_headers = [
                 'Followup Task ID',
                 'Followup Deadline',
                 'Followup Task Status',
+                'Closure Type',
                 'Reopen Reason',
                 'Followup Response Submission ID',
             ]
@@ -13865,12 +14490,13 @@ class DownloadImportTemplateView(APIView):
             sample_row_1[idx] = form.title or 'Sample Form'
             idx = headers.index('Form Type')
             sample_row_1[idx] = form.get_form_type_display() or 'Standard'
-            idx = headers.index('Audited Location')
-            sample_row_1[idx] = 'Plant A - Line 1'
-            idx = headers.index('Ambient Temperature')
-            sample_row_1[idx] = '28.5'
-            idx = headers.index('Total Production')
-            sample_row_1[idx] = '1500'
+            if is_audit:
+                idx = headers.index('Audited Location')
+                sample_row_1[idx] = 'Plant A - Line 1'
+                # Fill dynamic audit_info columns with sample data
+                for ai_h in dynamic_audit_info_headers:
+                    idx = headers.index(ai_h)
+                    sample_row_1[idx] = 'Sample Value'
             idx = headers.index('Source Type')
             sample_row_1[idx] = 'Form'
             idx = headers.index('Group Title')
@@ -13881,10 +14507,28 @@ class DownloadImportTemplateView(APIView):
             sample_row_1[idx] = 'Not OK'
             idx = headers.index('Remarks')
             sample_row_1[idx] = 'Sample remarks'
+            # Fill fallback sub-question columns with sample data
+            for fb_h in fallback_subq_headers:
+                if fb_h in headers:
+                    idx = headers.index(fb_h)
+                    if fb_h == 'Quantity':
+                        sample_row_1[idx] = '5'
+                    elif fb_h == 'After Image':
+                        sample_row_1[idx] = ''
+                    else:
+                        sample_row_1[idx] = 'Sample Value'
+            idx = headers.index('Followup Task ID')
+            sample_row_1[idx] = ''
             idx = headers.index('Followup Deadline')
             sample_row_1[idx] = '2024-01-22 10:30:00'
             idx = headers.index('Followup Task Status')
             sample_row_1[idx] = 'Not Started'
+            idx = headers.index('Closure Type')
+            sample_row_1[idx] = ''
+            idx = headers.index('Reopen Reason')
+            sample_row_1[idx] = ''
+            idx = headers.index('Followup Response Submission ID')
+            sample_row_1[idx] = ''
             idx = headers.index('Follow up action Title')
             sample_row_1[idx] = 'NC Closure Task'
             idx = headers.index('Follow Q1 Question')
@@ -13924,35 +14568,36 @@ class DownloadImportTemplateView(APIView):
                 'Status': ('Completed or Pending', 'No'),
                 'Form Title': ('Auto-filled from form', 'No'),
                 'Form Type': ('Auto-filled from form', 'No'),
-                'Overall Status': ('Audit form overall status (PASS/FAIL). Fill only on the first row of each response.', 'No'),
-                'Total Score (%)': ('Audit form total score percentage. Fill only on the first row of each response.', 'No'),
-                'Task Completion (%)': ('Auto-calculated - leave blank', 'No'),
-                'Overdue Tasks (%)': ('Auto-calculated - leave blank', 'No'),
-                'Reopened Tasks (%)': ('Auto-calculated - leave blank', 'No'),
-                'Audited Location': ('Location audited (for Audit forms). Fill only on the first row of each response', 'No'),
-                'Ambient Temperature': ('Ambient temperature reading (for Audit forms). Fill only on first row', 'No'),
-                'Total Production': ('Total production value (for Audit forms). Fill only on first row', 'No'),
+                'Audited Location': ('Location name as defined in Organization Admin > Locations. Must match an existing location. Fill only on the first row of each response', 'No') if is_audit else None,
+                'Imported': ('Auto-set to Yes on import - leave blank', 'No'),
                 'Source Type': ('Form or Planner. If Planner, provide Source ID as planner order_id. Fill only on first row.', 'No'),
                 'Source ID': ('Planner order_id if Source Type is Planner, blank if Form. Fill only on first row.', 'No'),
-                'Imported': ('Auto-set to Yes on import - leave blank', 'No'),
-                'Group Title': ('Stage name or Audit Group name (must match form)', 'Yes'),
-                'Item': ('Question text (must match form questions exactly)', 'Yes'),
+                'Group Title': ('Group/stage name for this question. Can be existing or new.', 'Yes'),
+                'Item': ('Question text. Can be existing or new - will be created if not found.', 'Yes'),
                 'Response': ('Answer text for the question', 'Yes'),
                 'Image': ('Image URLs for the question answer (optional)', 'No'),
                 'Remarks': ('Additional remarks for the question (optional)', 'No'),
-                'Followup Task ID': ('Leave blank - auto-generated', 'No'),
+                'Followup Task ID': ('Leave blank - auto-generated on import', 'No'),
                 'Followup Deadline': ('Deadline for the followup task. Only fill on the row of the question that triggers the followup.', 'No'),
                 'Followup Task Status': ('Not Started / In Progress / Completed / Cancelled. Only fill on the row of the question that triggers the followup.', 'No'),
+                'Closure Type': ('Leave blank - auto-determined by the system (Manual or Auto-Closed).', 'No'),
                 'Reopen Reason': ('Reason for reopening the task (optional). Only fill on the row of the question that triggers the followup.', 'No'),
-                'Followup Response Submission ID': ('Leave blank - auto-generated', 'No'),
+                'Followup Response Submission ID': ('Leave blank - auto-generated when followup is submitted', 'No'),
                 'Follow up action Title': ('Title of the followup task. ONLY fill on the row of the question that triggers the followup. Leave BLANK for all other questions. Use "NC Closure Task" for auto-assignment.', 'No'),
             }
             for h in headers:
                 if h in col_descriptions:
-                    desc, req = col_descriptions[h]
+                    desc_entry = col_descriptions[h]
+                    if desc_entry is None:
+                        continue
+                    desc, req = desc_entry
                     instructions.append([h, desc, req])
                 elif h in dynamic_subq_headers:
                     instructions.append([h, f'Sub-question/logic question answer. Fill on the same row as the main question (Item).', 'No'])
+                elif h in fallback_subq_headers:
+                    instructions.append([h, f'Sub-question answer (independent of form dropdowns). Fill on the same row as the main question (Item). Will create a new sub-question if not found in the form.', 'No'])
+                elif h in dynamic_audit_info_headers:
+                    instructions.append([h, f'Audit info field. Fill only on the first row of each response.', 'No'])
                 elif h.startswith('Follow Q') and 'Question' in h:
                     instructions.append([h, 'Close question text for the followup task. Fill on the same row as the Follow up action Title.', 'No'])
                 elif h.startswith('Follow Q') and 'Answer' in h:

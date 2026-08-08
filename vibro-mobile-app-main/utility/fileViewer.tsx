@@ -14,6 +14,7 @@ import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Video, ResizeMode } from 'expo-av';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface FileViewerProps {
   visible: boolean;
@@ -75,6 +76,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({
   const [fileBase64, setFileBase64] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fileType, setFileType] = useState<string>('unsupported');
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (visible && announcementId && filename) {
@@ -243,7 +245,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
     >
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
             <Text style={styles.closeText}>✕ Close</Text>

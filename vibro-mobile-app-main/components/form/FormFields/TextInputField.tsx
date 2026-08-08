@@ -165,7 +165,7 @@ const TextInputField: React.FC<TextInputFieldProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: { marginBottom: 10 },
+  container: { marginBottom: 6 },
   inputContainer: {
     position: 'relative',
   },
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   floatingLabel: {
     position: 'absolute',
     left: 12,
-    top: -8,
+    top: -7,
     paddingHorizontal: 4,
     fontSize: 12,
     color: '#666',
@@ -229,12 +229,12 @@ const styles = StyleSheet.create({
   input: {
     ...typography.labelLarge,
     borderWidth: 0,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    paddingTop: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    paddingTop: 12,
     color: textColors.primary,
     backgroundColor: "transparent",
-    minHeight: 50,
+    minHeight: 42,
   },
   lockedInput: {
     backgroundColor: "#f0f0f0",

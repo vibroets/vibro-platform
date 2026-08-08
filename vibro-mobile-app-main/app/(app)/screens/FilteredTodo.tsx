@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback } from 'react';
 import { BackHandler, TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import TodoScreen from '../../screens/Todo/index';
 
 export default function FilteredTodo() {
@@ -23,7 +24,7 @@ export default function FilteredTodo() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
           <Ionicons name="arrow-back" size={24} color="#ffffff" />
@@ -34,7 +35,7 @@ export default function FilteredTodo() {
       <View style={styles.body}>
         <TodoScreen />
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

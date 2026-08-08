@@ -28,6 +28,7 @@ import { chatNotificationService } from "../services/chatNotificationService";
 import * as Linking from "expo-linking";
 import { useSelector } from "react-redux";
 import { RootState } from "../Redux/reducer/rootReducer";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MEDIA_BASE_URL } from "../services";
 
@@ -98,6 +99,8 @@ const ChatBot = () => {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const notifTimerRef = useRef<any>(null);
   const currentUser = useSelector((state: RootState) => state.user);
+  const currentUserRef = useRef<any>(null);
+  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
 
   const socketRef = useRef<ChatSocket | null>(null);
   const recordingRef = useRef<Audio.Recording | null>(null);
@@ -186,6 +189,7 @@ const ChatBot = () => {
       }
 
       const msg = data.message;
+
       const senderName = msg?.sender
         ? ((msg.sender.first_name || "") + " " + (msg.sender.last_name || "")).trim() || msg.sender.username
         : "Someone";
@@ -205,6 +209,7 @@ const ChatBot = () => {
       });
       if (notifTimerRef.current) clearTimeout(notifTimerRef.current);
       notifTimerRef.current = setTimeout(() => setNotifPopup(null), 5000);
+      fetchGroups();
     });
     chatNotificationService.connect();
     return () => {
@@ -253,6 +258,8 @@ const ChatBot = () => {
       const res = await api.get(`/chat/chat-groups/${groupId}/messages/`);
       setMessages(res.data);
       await api.post(`/chat/chat-groups/${groupId}/mark_read/`);
+      // Immediately update local unread_count for this group to 0
+      setGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, unread_count: 0 } : g));
     } catch (e) {
       console.warn("fetchMessages error:", e);
     } finally {
@@ -727,8 +734,8 @@ const ChatBot = () => {
       )}
 
       {/* Full Chat Modal */}
-      <Modal visible={visible} animationType="slide" onRequestClose={() => { disconnectSocket(); setVisible(false); setViewMode("bot"); }}>
-        <View style={styles.modalContainer}>
+      <Modal visible={visible} animationType="slide" onRequestClose={() => { disconnectSocket(); setVisible(false); setViewMode("bot"); fetchGroups(); }}>
+        <SafeAreaView style={styles.modalContainer} edges={["top", "bottom"]}>
           {/* Header */}
           <View style={styles.chatHeader}>
             <TouchableOpacity
@@ -740,6 +747,7 @@ const ChatBot = () => {
                 } else {
                   disconnectSocket();
                   setVisible(false);
+                  fetchGroups();
                 }
               }}
               style={styles.headerBtn}
@@ -1060,12 +1068,12 @@ const ChatBot = () => {
               )}
             </View>
           )}
-        </View>
+        </SafeAreaView>
       </Modal>
 
       {/* Member Picker Modal */}
       <Modal visible={showMemberPicker} animationType="slide" onRequestClose={() => setShowMemberPicker(false)}>
-        <View style={{ flex: 1, backgroundColor: "#fff" }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["top", "bottom"]}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
             <Text style={{ fontSize: 16, fontWeight: "700", color: "#111827" }}>
               {pickerType === "groups" ? "Select Groups" : "Select Users"}
@@ -1146,7 +1154,7 @@ const ChatBot = () => {
               );
             }}
           />
-        </View>
+        </SafeAreaView>
       </Modal>
     </>
   );

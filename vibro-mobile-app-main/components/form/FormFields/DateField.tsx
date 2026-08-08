@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   label: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
     marginBottom: 8,
   },
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     color: "red",
   },
   description: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#666",
     marginBottom: 12,
   },
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   dateText: {
-    fontSize: 16,
+    fontSize: 18,
     color: "#333",
   },
   disabledInput: {
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: "red",
     marginTop: 5,
-    fontSize: 14,
+    fontSize: 16,
   },
 });
 

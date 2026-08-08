@@ -9,6 +9,7 @@ import RehydrateProvider from "@/components/rehydrateprovider";
 import "./globals.css";
 import ClientLayout from "./client-layout"; // 👈 new wrapper
 import { ToastProvider } from "@/components/ui/ToastProvider";
+import { faviconDataUri } from "./embedded-favicon";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,8 +18,8 @@ export const metadata: Metadata = {
   description: "A unified dashboard for operational excellence",
   generator: "v0.dev",
   icons: {
-    icon: "/icons/192x192.png",
-    apple: "/icons/192x192.png",
+    icon: faviconDataUri,
+    apple: faviconDataUri,
   },
   appleWebApp: {
     capable: true,

@@ -198,26 +198,26 @@ const AuditAccordion: React.FC<AuditAccordionProps> = ({
 
 const styles = StyleSheet.create({
   accordionItem: {
-    marginBottom: 12,
+    marginBottom: 8,
     marginHorizontal: 16,
     borderRadius: 8,
     overflow: "hidden",
     backgroundColor: "#fff",
-    elevation: 4,
+    elevation: 2,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
     maxWidth: "100%",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     backgroundColor: "#2196f3",
-    minHeight: 48,
+    minHeight: 40,
   },
   activeHeader: {
     borderTopLeftRadius: 8,
@@ -238,22 +238,22 @@ const styles = StyleSheet.create({
   },
   scoreContainer: {
     backgroundColor: "#f8f9fa",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#e0e0e0",
   },
   scoreTextContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   scoreText: {
     ...typography.bodyMedium,
     color: textColors.primary,
   },
   content: {
-    padding: 12,
+    padding: 8,
     width: "100%",
   },
 });

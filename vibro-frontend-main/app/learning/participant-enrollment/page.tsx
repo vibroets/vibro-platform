@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import axiosInstance from "@/utils/axiosInstance";
 import LearningLayout from "@/components/learning/LearningLayout";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 
 const statusColors: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700 border-amber-200",
@@ -25,6 +26,8 @@ const contentTypeConfig: Record<string, { icon: any; color: string; bg: string; 
 };
 
 export default function ParticipantEnrollmentPage() {
+  const { isFullAccess, isViewOnly, isSuperAdmin } = useModuleAccess("learning_training");
+  const canEdit = isFullAccess || isSuperAdmin;
   const [enrollments, setEnrollments] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
@@ -249,7 +252,7 @@ export default function ParticipantEnrollmentPage() {
 
   const renderApproveReject = (en: any) => (
     <div className="flex gap-1">
-      {en.status === "pending" && (
+      {canEdit && en.status === "pending" && (
         <>
           <button onClick={() => handleApprove(en.id)} className="text-green-600 hover:bg-green-50 p-1.5 rounded-lg transition-colors" title="Approve">
             <CheckCircle className="h-4 w-4" />
@@ -259,9 +262,11 @@ export default function ParticipantEnrollmentPage() {
           </button>
         </>
       )}
-      <button onClick={() => handleDelete(en.id)} className="text-gray-400 hover:bg-gray-100 p-1.5 rounded-lg transition-colors" title="Delete">
-        <Trash2 className="h-4 w-4" />
-      </button>
+      {canEdit && (
+        <button onClick={() => handleDelete(en.id)} className="text-gray-400 hover:bg-gray-100 p-1.5 rounded-lg transition-colors" title="Delete">
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 
@@ -333,9 +338,13 @@ export default function ParticipantEnrollmentPage() {
             <option value="enrolled">Enrolled</option>
             <option value="completed">Completed</option>
           </select>
-          <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[#3A72EC] text-white rounded-lg hover:bg-[#2a5dbf] transition-colors text-sm font-medium whitespace-nowrap">
-            <UserPlus className="h-4 w-4" /> New Enrollment
-          </button>
+          {canEdit ? (
+            <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[#3A72EC] text-white rounded-lg hover:bg-[#2a5dbf] transition-colors text-sm font-medium whitespace-nowrap">
+              <UserPlus className="h-4 w-4" /> New Enrollment
+            </button>
+          ) : isViewOnly ? (
+            <span className="text-xs text-gray-500 italic">View only access</span>
+          ) : null}
         </div>
       </div>
 

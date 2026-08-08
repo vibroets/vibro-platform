@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Bell, Plus, Edit, Trash2, Mail, MessageSquare, Smartphone, Save, X, Send, ToggleLeft, ToggleRight } from "lucide-react";
 import axiosInstance from "@/utils/axiosInstance";
 import LearningLayout from "@/components/learning/LearningLayout";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 
 const NOTIFICATION_TYPES = [
   { value: "training-created", label: "Training Created" },
@@ -56,6 +57,8 @@ interface NotificationForm {
 const defaultNotifForm: NotificationForm = { title: "", type: "training-created", trigger: "immediate", channels: ["email"], template: "", enabled: true };
 
 export default function NotificationsPage() {
+  const { isFullAccess, isViewOnly, isSuperAdmin } = useModuleAccess("learning_training");
+  const canEdit = isFullAccess || isSuperAdmin;
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -99,9 +102,13 @@ export default function NotificationsPage() {
   return (
     <LearningLayout title="Notifications" description="Manage notification templates and triggers">
       <div className="flex justify-end mb-4">
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-[#3A72EC] text-white rounded-lg hover:bg-[#2a5dbf] transition-colors text-sm font-medium">
-          <Plus className="h-4 w-4" /> Add Notification
-        </button>
+        {canEdit ? (
+          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-[#3A72EC] text-white rounded-lg hover:bg-[#2a5dbf] transition-colors text-sm font-medium">
+            <Plus className="h-4 w-4" /> Add Notification
+          </button>
+        ) : isViewOnly ? (
+          <span className="text-xs text-gray-500 italic self-center">View only access</span>
+        ) : null}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -142,12 +149,20 @@ export default function NotificationsPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <button onClick={() => handleToggleEnabled(n)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${n.enabled ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>{n.enabled ? <ToggleRight className="h-3 w-3" /> : <ToggleLeft className="h-3 w-3" />} {n.enabled ? "Enabled" : "Disabled"}</button>
+                    {canEdit ? (
+                      <button onClick={() => handleToggleEnabled(n)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${n.enabled ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>{n.enabled ? <ToggleRight className="h-3 w-3" /> : <ToggleLeft className="h-3 w-3" />} {n.enabled ? "Enabled" : "Disabled"}</button>
+                    ) : (
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${n.enabled ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>{n.enabled ? <ToggleRight className="h-3 w-3" /> : <ToggleLeft className="h-3 w-3" />} {n.enabled ? "Enabled" : "Disabled"}</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1.5">
-                      <button onClick={() => openEdit(n)} className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="Edit"><Edit className="h-4 w-4" /></button>
-                      <button onClick={() => handleDelete(n.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                      {canEdit && (
+                        <>
+                          <button onClick={() => openEdit(n)} className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="Edit"><Edit className="h-4 w-4" /></button>
+                          <button onClick={() => handleDelete(n.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

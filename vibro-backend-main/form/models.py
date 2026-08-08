@@ -157,6 +157,7 @@ class AuditGroup(BaseModel):
     group_uuid = models.CharField(max_length=255)
     class Meta:
         unique_together = ('form', 'name')
+        ordering = ['order']
  
     
 class Question(BaseModel):
@@ -338,6 +339,7 @@ class FormSubmision(models.Model):
     completed_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name="completed_submissions")
     completed_on = models.DateTimeField(null=True, blank=True)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="submissions")
+    is_bulk_imported = models.BooleanField(default=False, help_text="True if this submission was created via the bulk import responses feature")
     
     def __str__(self):
         return f"Submission by {self.submission_initiated_by.username} for {self.form.title} on {self.submission_initiated_on} for stage {self.submission_initiated_stage.name if self.submission_initiated_stage else 'N/A'}"

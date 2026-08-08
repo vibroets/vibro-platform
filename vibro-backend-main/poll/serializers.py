@@ -90,6 +90,9 @@ class PollMobileSerializer(serializers.ModelSerializer):
         ]
 
     def get_is_completed(self, obj):
+        # Per-user completion is tracked via PollResponse (the user is stored
+        # even for anonymous polls). share_status can't be used because
+        # group/location shares are a single row shared by all members.
         user_id = self.context.get('user_id')
         if user_id:
             return PollResponse.objects.filter(poll=obj, user_id=user_id).exists()

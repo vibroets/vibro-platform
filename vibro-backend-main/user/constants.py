@@ -13,6 +13,8 @@ class APP_MODULES:
     LEARNING_TRAINING = "learning_training"
     PLANNER = "planner"
     ATTENDANCE = "attendance"
+    GUIDES = "guides"
+    ADMINISTRATION = "administration"
     
     ALL = [
         DASHBOARD,
@@ -22,7 +24,9 @@ class APP_MODULES:
         POLLS,
         LEARNING_TRAINING,
         PLANNER,
-        ATTENDANCE
+        ATTENDANCE,
+        GUIDES,
+        ADMINISTRATION
     ]
     
 class GROUP_TYPES:

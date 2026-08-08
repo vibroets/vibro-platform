@@ -147,11 +147,11 @@ const FormFieldWrapper: React.FC<FormFieldWrapperProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: { marginBottom: 12 },
+  container: { marginBottom: 8 },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 5,
   },
   labelWrapper: { flex: 1, marginRight: 8 },
   label: {
@@ -170,8 +170,8 @@ const styles = StyleSheet.create({
   description: {
     ...typography.bodyMedium,
     color: textColors.secondary,
-    marginTop: 8,
-    marginBottom: 16,
+    marginTop: 4,
+    marginBottom: 8,
   },
 });
 

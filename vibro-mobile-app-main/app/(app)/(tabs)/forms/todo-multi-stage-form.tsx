@@ -3,7 +3,6 @@ import TodoMultiStageFormScreen from "@/components/form/screens/TodoMultiStageFo
 import { useLocalSearchParams, router } from "expo-router";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import SearchBar from "@/components/SearchBar";
 
 interface TodoMultiStageFormProps {
   formId?: string;
@@ -51,11 +50,7 @@ export default function TodoMultiStageForm({
   const handleClose = propOnClose || (() => router.back());
 
   return (
-    <>
-      {/* You can uncomment and use a Header here if needed, just like in MultiStageForm */}
-      {/* <Header title="Forms Stage" showBack onBackPress={() => router.back()} /> */}
-
-      <View style={styles.container}>
+    <View style={styles.container}>
         {formType === "audit" ? (
           <>
             <AuditFormScreen
@@ -70,12 +65,9 @@ export default function TodoMultiStageForm({
           </>
         ) : (
           <>
-            <View style={{ marginBottom: 16, marginHorizontal: 16 }}>
-              <SearchBar placeholder="Search..." />
-              {!!resolvedFormTitle && (
-                <Text style={styles.formTitle}>{resolvedFormTitle}</Text>
-              )}
-            </View>
+            {!!resolvedFormTitle && (
+              <Text style={styles.formTitle}>{resolvedFormTitle}</Text>
+            )}
 
             <TodoMultiStageFormScreen
               formId={formId}
@@ -86,28 +78,26 @@ export default function TodoMultiStageForm({
             />
           </>
         )}
-      </View>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 10,
-    // backgroundColor: "#fff", // uncomment if needed
   },
   formTitle: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: "600",
     textAlign: "center",
-    marginTop: 10,
+    marginHorizontal: 12,
+    marginVertical: 2,
     color: "#2196f3",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
     backgroundColor: "#f8f9fa",
-    borderRadius: 8,
-    borderLeftWidth: 8,
+    borderRadius: 6,
+    borderLeftWidth: 4,
     borderLeftColor: "#2196f3",
     elevation: 1,
     shadowColor: "#000",

@@ -14,6 +14,7 @@ import {
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { RootState } from '../../../../Redux/reducer/rootReducer';
 import api from '../../../../services';
 import { fetchFormReceived } from '../../../../Redux/actions/formReceivedActions';
@@ -444,27 +445,27 @@ const Notification = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer} edges={['bottom']}>
         <ActivityIndicator size="large" color="#2196f3" />
         <Text style={styles.loadingText}>Loading notifications...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
+      <SafeAreaView style={styles.errorContainer} edges={['bottom']}>
         <MaterialIcons name="error-outline" size={64} color="#FF3B30" />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={refreshData}>
           <Text style={styles.buttonText}>Retry</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <Header title="Notifications" showBack onBackPress={() => handleBackNavigation()} />
 
       <View style={styles.controlPanel}>
@@ -593,7 +594,7 @@ const Notification = () => {
       </Modal>
 
       <Toast />
-    </View>
+    </SafeAreaView>
   );
 };
 

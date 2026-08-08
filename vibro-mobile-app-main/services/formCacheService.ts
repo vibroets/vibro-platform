@@ -112,12 +112,15 @@ export async function fetchFormStages(
     console.error("[formCacheService] fetchFormStages failed:", { formId, orders, submissionId, error: error?.message, status: error?.response?.status });
     // Fallback to old endpoint if fast endpoint fails
     try {
-      const groupsParam = orders.length > 0 ? `?groups=${orders.join(',')}` : '';
+      const fallbackParams: string[] = [];
+      if (orders.length > 0) fallbackParams.push(`groups=${orders.join(',')}`);
+      if (groupId) fallbackParams.push(`group_id=${groupId}`);
+      const fallbackQuery = fallbackParams.length > 0 ? `?${fallbackParams.join('&')}` : '';
       let url: string;
       if (submissionId) {
-        url = `${GETFORMSUBMISSIONDETAILS}${formId}/${submissionId}${groupsParam}`;
+        url = `${GETFORMSUBMISSIONDETAILS}${formId}/${submissionId}${fallbackQuery}`;
       } else {
-        url = `${FORM}${formId}/${groupsParam}`;
+        url = `${FORM}${formId}/${fallbackQuery}`;
       }
       const response = await api.get(url);
       return response.data;

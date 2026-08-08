@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   rowTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "bold",
     color: "#333",
   },
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: "#333",
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
   },
   rowContentCollapsed: {
@@ -362,11 +362,11 @@ const styles = StyleSheet.create({
   errorText: {
     color: "red",
     marginTop: 8,
-    fontSize: 13,
+    fontSize: 15,
   },
   emptyTableText: {
     color: "#6b7280",
-    fontSize: 13,
+    fontSize: 15,
     textAlign: "center",
     paddingVertical: 10,
   },

@@ -5,7 +5,7 @@ import { Provider, useDispatch, useSelector } from "react-redux";
 import { RootState } from "../Redux/reducer/rootReducer";
 
 import store from "../store"; // ✅ Use relative import
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { SessionExpiredModal } from "../components/SessionExpiredModal";
 import { hideSessionExpiredModal } from "../Redux/reducer/modal/modalSlice";
 import { logoutRequest } from "../Redux/reducer/auth/authSlice";
@@ -39,11 +39,8 @@ function AppContent() {
 export default function RootLayout() {
   return (
     <Provider store={store}>
-      {/* 👇 SafeAreaProvider prevents layout issues on devices */}
       <SafeAreaProvider>
-        <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
-          <AppContent />
-        </SafeAreaView>
+        <AppContent />
       </SafeAreaProvider>
     </Provider>
   );

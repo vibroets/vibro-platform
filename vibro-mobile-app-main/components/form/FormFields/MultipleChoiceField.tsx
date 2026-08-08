@@ -877,7 +877,7 @@ const MultipleChoiceField: React.FC<MultipleChoiceFieldProps> = ({
 
 const styles = StyleSheet.create({
   optionsContainer: {
-    marginTop: 12,
+    marginTop: 8,
   },
   optionsContainerError: {
     borderWidth: 1,
@@ -887,12 +887,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF0F0",
   },
   optionButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: "#ddd",
     borderRadius: 8,
-    marginBottom: 10,
+    marginBottom: 6,
     backgroundColor: "#fff",
   },
   optionSelected: {
@@ -906,7 +906,7 @@ const styles = StyleSheet.create({
   },
   optionText: {
     ...typography.labelLarge,
-    marginLeft: 12,
+    marginLeft: 10,
     flex: 1,
     color: textColors.primary,
   },
@@ -941,9 +941,9 @@ const styles = StyleSheet.create({
   otherTextarea: {
     ...typography.labelLarge,
     borderWidth: 0,
-    paddingHorizontal: 14,
-    paddingVertical: 16,
-    minHeight: 120,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 80,
     textAlignVertical: "top",
     color: textColors.primary,
   },
@@ -960,10 +960,10 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: textColors.error,
     marginTop: 4,
-    fontSize: 12,
+    fontSize: 14,
   },
   logicContainer: {
-    marginTop: 20,
+    marginTop: 12,
   },
   followUpContainer: {
     marginTop: 8,

@@ -596,10 +596,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ddd",
     borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     backgroundColor: "#fff",
-    minHeight: 50,
+    minHeight: 42,
   },
   errorInput: {
     borderColor: textColors.error,
@@ -670,7 +670,7 @@ const styles = StyleSheet.create({
     color: textColors.primary 
   },
   optionItem: {
-    padding: 16,
+    padding: 12,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -724,9 +724,9 @@ const styles = StyleSheet.create({
   },
   otherTextarea: {
     borderWidth: 0,
-    paddingHorizontal: 14,
-    paddingVertical: 16,
-    minHeight: 120,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 80,
     textAlignVertical: "top",
     color: textColors.primary,
   },
@@ -738,7 +738,7 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: textColors.error,
     marginTop: 4,
-    fontSize: 12,
+    fontSize: 14,
   },
   followUpIndicator: {
     flexDirection: 'row',
@@ -901,7 +901,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   lockedText: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#6B7280',
     fontStyle: 'italic',
   },

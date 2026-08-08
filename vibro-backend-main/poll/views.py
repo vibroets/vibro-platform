@@ -55,8 +55,9 @@ class PollViewSet(viewsets.ModelViewSet):
         user = request.user
         answers = request.data.get('answers', [])
 
-        # For anonymous polls, don't link user to responses
-        response_user = None if poll.anonymous else user
+        # For anonymous polls, we still store the user on the response for tracking
+        # (my_polls/sent_polls/summary), but strip user info from API responses.
+        response_user = user
 
         if not poll.allow_multiple_responses and PollResponse.objects.filter(poll=poll, user=user).exists():
             return Response({"error": "You have already submitted this poll."}, status=status.HTTP_400_BAD_REQUEST)
@@ -138,6 +139,15 @@ class PollViewSet(viewsets.ModelViewSet):
             PollResponse.objects.filter(poll=poll, user__isnull=False)
             .values_list('user_id', flat=True).distinct()
         )
+        # Also count users who submitted via share_status (covers anonymous polls)
+        # Only count direct user shares with submitted status
+        submitted_share_user_ids = set(
+            PollShare.objects.filter(
+                poll=poll, share_status='submitted',
+                sent_to_user__isnull=False, sent_to_user__is_deleted=False
+            ).values_list('sent_to_user_id', flat=True)
+        )
+        all_responded_user_ids = all_responded_user_ids | submitted_share_user_ids
         # Only count responses from eligible users
         responded_user_ids = all_responded_user_ids & eligible_user_ids
 
@@ -146,10 +156,15 @@ class PollViewSet(viewsets.ModelViewSet):
         pending_responses = total_eligible - responses_received
         response_percentage = round((responses_received / total_eligible * 100), 1) if total_eligible > 0 else 0
 
-        # Anonymous responses count (responses with no user linked)
-        anonymous_responses = PollResponse.objects.filter(
-            poll=poll, user__isnull=True
-        ).values('user').distinct().count()
+        # Anonymous responses count (for anonymous polls, count distinct users who submitted)
+        if poll.anonymous:
+            anonymous_responses = PollResponse.objects.filter(
+                poll=poll, user__isnull=False
+            ).values('user_id').distinct().count()
+        else:
+            anonymous_responses = PollResponse.objects.filter(
+                poll=poll, user__isnull=True
+            ).values('user').distinct().count()
 
         # Department-wise participation
         dept_participation = {}
@@ -251,7 +266,7 @@ class PollViewSet(viewsets.ModelViewSet):
                 "email": user.email,
                 "department": user.department.name if user.department else "No Department",
                 "location": user.location.name if user.location else "No Location",
-                "responded": user.id in responded_user_ids,
+                "responded": (not poll.anonymous) and (user.id in responded_user_ids),
             })
 
         # Department × Location heat map data
@@ -346,13 +361,22 @@ class PollViewSet(viewsets.ModelViewSet):
         for r in responses:
             uid = r.user_id
             if uid not in user_responses:
-                user_responses[uid] = {
-                    "id": uid,
-                    "respondent": f"{r.user.first_name} {r.user.last_name}".strip() if r.user else "Anonymous",
-                    "department": r.user.department.name if r.user and r.user.department else "—",
-                    "submittedOn": r.submitted_on.strftime("%Y-%m-%d %H:%M") if r.submitted_on else "—",
-                    "answers": [],
-                }
+                if poll.anonymous:
+                    user_responses[uid] = {
+                        "id": None,
+                        "respondent": "Anonymous",
+                        "department": "—",
+                        "submittedOn": r.submitted_on.strftime("%Y-%m-%d %H:%M") if r.submitted_on else "—",
+                        "answers": [],
+                    }
+                else:
+                    user_responses[uid] = {
+                        "id": uid,
+                        "respondent": f"{r.user.first_name} {r.user.last_name}".strip() if r.user else "Anonymous",
+                        "department": r.user.department.name if r.user and r.user.department else "—",
+                        "submittedOn": r.submitted_on.strftime("%Y-%m-%d %H:%M") if r.submitted_on else "—",
+                        "answers": [],
+                    }
             user_responses[uid]["answers"].append({
                 "questionId": str(r.question_id),
                 "question": r.question.question_text,
@@ -374,14 +398,17 @@ def my_polls(request):
     user = request.user
     now = timezone.now()
 
-    # Exclude polls the user has already submitted responses to
-    submitted_poll_ids = PollResponse.objects.filter(user=user).values_list('poll_id', flat=True)
+    # Exclude polls the user has already submitted responses to.
+    # PollResponse is per-user (the user is stored even for anonymous polls),
+    # so it is the reliable source of truth. share_status is NOT usable here
+    # because group/location shares are a single row shared by all members.
+    submitted_poll_ids = set(PollResponse.objects.filter(user=user).values_list('poll_id', flat=True))
 
-    user_shares = PollShare.objects.filter(
-        Q(sent_to_user=user) |
-        Q(sent_to_group__members=user) |
-        Q(sent_to_location=user.location)
-    ).select_related('poll').filter(
+    share_filter = Q(sent_to_user=user) | Q(sent_to_group__members=user)
+    if user.location_id:
+        share_filter |= Q(sent_to_location_id=user.location_id)
+
+    user_shares = PollShare.objects.filter(share_filter).select_related('poll').filter(
         poll__is_active=True,
         poll__end_date__gte=now
     ).exclude(poll_id__in=submitted_poll_ids)
@@ -404,8 +431,10 @@ def my_polls(request):
 @permission_classes([IsAuthenticated])
 def sent_polls(request):
     user = request.user
-    responses = PollResponse.objects.filter(user=user).select_related('poll').order_by('-submitted_on')
-    poll_ids = list({r.poll_id for r in responses})
-    polls = Poll.objects.filter(id__in=poll_ids)
+    # Polls this user has actually submitted (per-user via PollResponse, which
+    # stores the user even for anonymous polls). We can't rely on share_status
+    # because group/location shares are a single row shared by all members.
+    response_poll_ids = set(PollResponse.objects.filter(user=user).values_list('poll_id', flat=True))
+    polls = Poll.objects.filter(id__in=response_poll_ids)
     serializer = PollMobileSerializer(polls, many=True, context={'user_id': user.id})
     return Response(serializer.data)

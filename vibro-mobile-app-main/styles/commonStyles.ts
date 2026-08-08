@@ -28,7 +28,7 @@ const commonStyles = StyleSheet.create({
     gap:10
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     color: "#fff",
     fontWeight: "600",
   },
@@ -52,7 +52,7 @@ const commonStyles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 18,
     color: "#1f2937", // neutral-800
   },
   content: {

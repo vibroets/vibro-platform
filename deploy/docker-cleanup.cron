@@ -1,0 +1,1 @@
+0 4 * * 0 root /opt/vibro/deploy/docker_cleanup.sh >> /var/log/docker-cleanup.log 2>&1

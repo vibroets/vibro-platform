@@ -1007,6 +1007,20 @@ class OrganizationSerializer(serializers.ModelSerializer):
                     access=permission_data['access']
                 )
 
+            # Sync new modules to all users in this org with no_access default
+            org_users = CustomUser.objects.filter(organization=instance)
+            for user in org_users:
+                existing_user_modules = set(
+                    ModulePermisions.objects.filter(user=user).values_list('module', flat=True)
+                )
+                for perm in module_access_list:
+                    if perm['module'] not in existing_user_modules:
+                        ModulePermisions.objects.create(
+                            user=user,
+                            module=perm['module'],
+                            access='no_access'
+                        )
+
         return instance
 
        

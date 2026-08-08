@@ -116,7 +116,7 @@ export interface ModuleAccess {
   is_draft?: boolean; // HIGHLIGHT: Add for future filter (hide drafts?)
 }
 
-export default function OrganizationManagement() {
+export default function OrganizationManagement({ canEdit = false }: { canEdit?: boolean }) {
   // Per-column filters for organizations
   const [orgNameFilter, setOrgNameFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -437,56 +437,62 @@ export default function OrganizationManagement() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onSelect={() =>
-                            router.push(`/admin/organizations/${org.id}/edit`)
-                          }
-                        >
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={() =>
-                            router.push(`/admin/organizations/${org.id}/admins`)
-                          }
-                        >
-                          <Users className="mr-2 h-4 w-4" />
-                          Manage Admins
-                        </DropdownMenuItem>
-                        {(isSuperAdmin || isAdmin) && (
-                          <DropdownMenuItem
-                            onSelect={() =>
-                              router.push(
-                                `/admin/organizations/${org.id}/leaders`
-                              )
-                            }
-                          >
-                            <MapPinned className="mr-2 h-4 w-4" />
-                            Manage Location leaders
-                          </DropdownMenuItem>
-                        )}
-                        {org.organization_status === "Active" ? (
-                          <DropdownMenuItem
-                            onSelect={() => {
-                              setPendingDeleteId(org.id);
-                              setShowModal(true);
-                              setCheckValue("Deactivate");
-                            }}
-                          >
-                            <PowerOff className="mr-2 h-4 w-4" />
-                            Deactivate
-                          </DropdownMenuItem>
+                        {canEdit ? (
+                          <>
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                router.push(`/admin/organizations/${org.id}/edit`)
+                              }
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                router.push(`/admin/organizations/${org.id}/admins`)
+                              }
+                            >
+                              <Users className="mr-2 h-4 w-4" />
+                              Manage Admins
+                            </DropdownMenuItem>
+                            {(isSuperAdmin || isAdmin) && (
+                              <DropdownMenuItem
+                                onSelect={() =>
+                                  router.push(
+                                    `/admin/organizations/${org.id}/leaders`
+                                  )
+                                }
+                              >
+                                <MapPinned className="mr-2 h-4 w-4" />
+                                Manage Location leaders
+                              </DropdownMenuItem>
+                            )}
+                            {org.organization_status === "Active" ? (
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  setPendingDeleteId(org.id);
+                                  setShowModal(true);
+                                  setCheckValue("Deactivate");
+                                }}
+                              >
+                                <PowerOff className="mr-2 h-4 w-4" />
+                                Deactivate
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  setPendingDeleteId(org.id);
+                                  setShowModal(true);
+                                  setCheckValue("Activate");
+                                }}
+                              >
+                                <Power className="mr-2 h-4 w-4" />
+                                Activate
+                              </DropdownMenuItem>
+                            )}
+                          </>
                         ) : (
-                          <DropdownMenuItem
-                            onSelect={() => {
-                              setPendingDeleteId(org.id);
-                              setShowModal(true);
-                              setCheckValue("Activate");
-                            }}
-                          >
-                            <Power className="mr-2 h-4 w-4" />
-                            Activate
-                          </DropdownMenuItem>
+                          <div className="px-2 py-1.5 text-xs text-gray-500 italic">View only access</div>
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>

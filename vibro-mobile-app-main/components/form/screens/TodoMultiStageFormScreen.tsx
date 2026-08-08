@@ -25,6 +25,7 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { useSelector } from "react-redux";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { ToggleContext } from "../../../app/(app)/_layout";
 import KeyboardAwareContainer, { KeyboardAwareContainerRef } from "../../../components/KeyboardAwareContainer";
 import { RootState } from "../../../Redux/reducer/rootReducer";
@@ -1905,26 +1906,27 @@ const TodoMultiStageFormScreen: React.FC<TodoMultiStageFormScreenProps> = ({
               )}
               {/* For todo forms (including received todos), show Save as Draft and Preview buttons immediately */}
               {(taskId || sourceScreen === 'todo-receive' || submissionId) ? (
-                <View style={styles.tripleButtonContainer}>
+                <>
+                <View style={styles.footerButtonRow}>
                   {isOnline && sourceScreen !== 'todo-receive' && !isFollowupTask && (
                     <TouchableOpacity
-                      style={[styles.button, styles.draftStyleButton, styles.stackedButton]}
+                      style={[styles.button, styles.draftStyleButton, styles.footerBtn]}
                       onPress={() => setShowDraftConfirmation(true)}
                     >
-                      <MaterialIcons name="save" size={20} color="white" style={{ marginRight: 8 }} />
-                      <Text style={styles.buttonText}>Save as Draft</Text>
+                      <MaterialIcons name="save" size={18} color="white" style={{ marginRight: 6 }} />
+                      <Text style={styles.buttonText}>Draft</Text>
                     </TouchableOpacity>
                   )}
                   {sourceScreen === 'todo-receive' ? (
                     // For received todos, show submit button directly without preview requirement
                     <TouchableOpacity
-                      style={[styles.button, styles.nextButton, submitting && styles.disabledButton, styles.stackedButton]}
+                      style={[styles.button, styles.nextButton, submitting && styles.disabledButton, styles.footerBtn]}
                       onPress={handleFormSubmit}
                       disabled={submitting}
                     >
                       {submitting ? (
                         <>
-                          <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+                          <ActivityIndicator size="small" color="#fff" style={{ marginRight: 6 }} />
                           <Text style={styles.buttonText}>Submitting...</Text>
                         </>
                       ) : (
@@ -1935,28 +1937,29 @@ const TodoMultiStageFormScreen: React.FC<TodoMultiStageFormScreenProps> = ({
                     // For other forms, use preview/edit flow
                     !isPreview ? (
                       <TouchableOpacity
-                        style={[styles.button, styles.nextButton, styles.stackedButton]}
+                        style={[styles.button, styles.nextButton, styles.footerBtn]}
                         onPress={handlePreview}
                       >
+                        <MaterialIcons name="visibility" size={18} color="white" style={{ marginRight: 6 }} />
                         <Text style={styles.buttonText}>Preview</Text>
                       </TouchableOpacity>
                     ) : (
                       <>
                         <TouchableOpacity
-                          style={[styles.button, styles.stackedButton]}
+                          style={[styles.button, styles.footerBtn]}
                           onPress={() => setIsPreview(false)}
                         >
-                          <MaterialIcons name="edit" size={20} color="white" style={{ marginRight: 8 }} />
+                          <MaterialIcons name="edit" size={18} color="white" style={{ marginRight: 6 }} />
                           <Text style={styles.buttonText}>Edit</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={[styles.button, styles.nextButton, submitting && styles.disabledButton, styles.stackedButton]}
+                          style={[styles.button, styles.nextButton, submitting && styles.disabledButton, styles.footerBtn]}
                           onPress={handleFormSubmit}
                           disabled={submitting}
                         >
                           {submitting ? (
                             <>
-                              <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+                              <ActivityIndicator size="small" color="#fff" style={{ marginRight: 6 }} />
                               <Text style={styles.buttonText}>Submitting...</Text>
                             </>
                           ) : (
@@ -1967,41 +1970,37 @@ const TodoMultiStageFormScreen: React.FC<TodoMultiStageFormScreenProps> = ({
                     )
                   )}
                 </View>
+                </>
               ) : (
                 /* For regular forms, show buttons based on stage position */
                 (isLastStage || singleStageSubmit) && (
-                  <View style={styles.tripleButtonContainer}>
-                    {/* <TouchableOpacity
-                      style={[styles.button, styles.draftStyleButton, styles.stackedButton]}
-                      onPress={() => setShowDraftConfirmation(true)}
-                    >
-                      <MaterialIcons name="save" size={20} color="white" style={{ marginRight: 8 }} />
-                      <Text style={styles.buttonText}>Save as Draft</Text>
-                    </TouchableOpacity> */}
+                  <>
+                  <View style={styles.footerButtonRow}>
                     {!isPreview ? (
                       <TouchableOpacity
-                        style={[styles.button, styles.nextButton, styles.stackedButton]}
+                        style={[styles.button, styles.nextButton, styles.footerBtn]}
                         onPress={handlePreview}
                       >
+                        <MaterialIcons name="visibility" size={18} color="white" style={{ marginRight: 6 }} />
                         <Text style={styles.buttonText}>Preview</Text>
                       </TouchableOpacity>
                     ) : (
                       <>
                         <TouchableOpacity
-                          style={[styles.button, styles.stackedButton]}
+                          style={[styles.button, styles.footerBtn]}
                           onPress={() => setIsPreview(false)}
                         >
-                          <MaterialIcons name="edit" size={20} color="white" style={{ marginRight: 8 }} />
+                          <MaterialIcons name="edit" size={18} color="white" style={{ marginRight: 6 }} />
                           <Text style={styles.buttonText}>Edit</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={[styles.button, styles.nextButton, submitting && styles.disabledButton, styles.stackedButton]}
+                          style={[styles.button, styles.nextButton, submitting && styles.disabledButton, styles.footerBtn]}
                           onPress={handleFormSubmit}
                           disabled={submitting}
                         >
                           {submitting ? (
                             <>
-                              <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+                              <ActivityIndicator size="small" color="#fff" style={{ marginRight: 6 }} />
                               <Text style={styles.buttonText}>Submitting...</Text>
                             </>
                           ) : (
@@ -2011,6 +2010,7 @@ const TodoMultiStageFormScreen: React.FC<TodoMultiStageFormScreenProps> = ({
                       </>
                     )}
                   </View>
+                  </>
                 )
               )}
             </View>
@@ -2224,22 +2224,22 @@ const TodoMultiStageFormScreen: React.FC<TodoMultiStageFormScreenProps> = ({
 const styles = StyleSheet.create({
   screenContainer: { flex: 1, backgroundColor: '#fff' },
 formTitle: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: "600",
     textAlign: "center",
-    marginTop: 4,           // ← was 10
-    marginBottom: 8,        // ← add this (was missing)
+    marginTop: 4,
+    marginBottom: 6,
     color: "#2196f3",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     backgroundColor: "#f8f9fa",
     borderRadius: 8,
-    borderLeftWidth: 8,
+    borderLeftWidth: 6,
     borderLeftColor: "#2196f3",
     elevation: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 2,
   },
 
@@ -2277,7 +2277,7 @@ formTitle: {
 
   startButtonText: {
     color: "#fff",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
   },
   reopenButton: {
@@ -2289,7 +2289,7 @@ formTitle: {
   },
   reopenButtonText: {
     color: "white",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
   },
   reopenButtonContainer: {
@@ -2308,13 +2308,13 @@ formTitle: {
   },
   reopenActionButtonText: {
     color: "white",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
   },
 
   // 3. Reduce top padding of the scroll content so the accordion starts closer
   scrollContent: {
-    paddingTop: 4,          // ← was 8
+    paddingTop: 0,
     paddingBottom: 20,
   },
   modalOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", zIndex: 999 },
@@ -2343,7 +2343,7 @@ formTitle: {
   },
   headerTitle: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
     marginHorizontal: 8,
@@ -2374,7 +2374,7 @@ formTitle: {
   },
   loadingText: {
     marginTop: 10,
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
   },
   errorContainer: {
@@ -2384,7 +2384,7 @@ formTitle: {
     padding: 20,
   },
   errorText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#d32f2f',
     textAlign: 'center',
     marginBottom: 20,
@@ -2404,11 +2404,11 @@ formTitle: {
   },
   closeButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
   },
   buttonText: {
-    ...typography.labelLarge,
+    fontSize: 12,
     color: textColors.white,
     fontWeight: "600",
   },
@@ -2416,15 +2416,15 @@ formTitle: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 10,
-    marginBottom: 10,
+    marginTop: 6,
+    marginBottom: 6,
     marginHorizontal: 16,
   },
   stageIndicator: {
     flex: 1,
     backgroundColor: "#fff",
     borderRadius: 6,
-    padding: 10,
+    padding: 6,
   },
   buttonContainer: {
     flexDirection: "row",
@@ -2442,6 +2442,22 @@ formTitle: {
     alignSelf: "stretch",
     paddingHorizontal: 16,
   },
+  footerButtonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  footerBtn: {
+    flex: 1,
+    marginHorizontal: 3,
+    minHeight: 40,
+    minWidth: 0,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
   draftStyleButton: {
     backgroundColor: "#FFA500",
   },
@@ -2450,12 +2466,13 @@ formTitle: {
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#007AFF",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: 8,
-    minHeight: 44,
+    minHeight: 40,
+    minWidth: 0,
     flex: 1,
-    marginHorizontal: 4,
+    marginHorizontal: 3,
   },
   submitButton: {
     backgroundColor: "#34C759",
@@ -2552,43 +2569,43 @@ formTitle: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     backgroundColor: "#f8f9fa",
     borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 2,
     elevation: 2,
   },
   dateLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: "#333",
   },
   dateValue: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#666",
     fontWeight: "500",
   },
-  stageMenuModal: { width: "90%", backgroundColor: "#fff", borderRadius: 10, padding: 20, maxHeight: "60%" },
-  stageMenuHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: "#eee" },
+  stageMenuModal: { width: "90%", backgroundColor: "#fff", borderRadius: 10, padding: 16, maxHeight: "60%" },
+  stageMenuHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: "#eee" },
   stageMenuTitle: { ...typography.titleMedium, color: textColors.primary, flex: 1 },
   stageMenuCloseButton: { padding: 5 },
   stageMenuContent: { flex: 1 },
-  stageMenuOption: { flexDirection: "row", alignItems: "center", paddingVertical: 15, paddingHorizontal: 10, marginBottom: 10, borderRadius: 8, backgroundColor: "#F8F9FA" },
+  stageMenuOption: { flexDirection: "row", alignItems: "center", paddingVertical: 10, paddingHorizontal: 10, marginBottom: 8, borderRadius: 8, backgroundColor: "#F8F9FA" },
   stageMenuOptionDisabled: { backgroundColor: "#F5F5F5", opacity: 0.6 },
   stageMenuIcon: { marginRight: 15 },
   stageMenuOptionText: { ...typography.labelLarge, color: textColors.primary },
   stageMenuOptionTextDisabled: { color: "#999" },
-  completedInfo: { padding: 15, borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 10, backgroundColor: "#F9FAFB", marginHorizontal: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3, marginBottom: 10 },
-  completedInfoRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: 10 },
+  completedInfo: { padding: 12, borderWidth: 1, borderColor: "#E0E0E0", borderRadius: 10, backgroundColor: "#F9FAFB", marginHorizontal: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2, marginBottom: 8 },
+  completedInfoRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: 8 },
   completedInfoIcon: { marginRight: 10, marginTop: 2 },
   completedText: { ...typography.labelMedium, color: textColors.primary, fontWeight: "700", flex: 1, flexWrap: "wrap" },
-  stageHeaderText: { ...typography.titleSmall, color: textColors.link, marginBottom: 15, textAlign: "center" },
-  infoSeparator: { height: 1, backgroundColor: "#E0E0E0", marginVertical: 10, marginHorizontal: 5 },
+  stageHeaderText: { ...typography.titleSmall, color: textColors.link, marginBottom: 10, textAlign: "center" },
+  infoSeparator: { height: 1, backgroundColor: "#E0E0E0", marginVertical: 8, marginHorizontal: 5 },
 });
 
 export default TodoMultiStageFormScreen;

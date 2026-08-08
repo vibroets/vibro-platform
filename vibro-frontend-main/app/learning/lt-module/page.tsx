@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { BookOpen, Video, FileText, Plus, Edit, Trash2, Share2, Users, Save, X, FileUp, MapPin, Building2, FileSpreadsheet, Eye } from "lucide-react";
 import axiosInstance from "@/utils/axiosInstance";
 import LearningLayout from "@/components/learning/LearningLayout";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import QuestionBuilder, { Question } from "@/components/learning/QuestionBuilder";
 
 interface QuizForm {
@@ -53,6 +54,8 @@ const defaultTrainingForm: TrainingForm = {
 };
 
 export default function LTModulePage() {
+  const { isFullAccess, isViewOnly, isSuperAdmin } = useModuleAccess("learning_training");
+  const canEdit = isFullAccess || isSuperAdmin;
   const [activeTab, setActiveTab] = useState("quiz");
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
@@ -745,9 +748,13 @@ export default function LTModulePage() {
       </div>
 
       <div className="flex justify-end mb-4">
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-[#3A72EC] text-white rounded-lg hover:bg-[#2a5dbf] transition-colors text-sm font-medium">
-          <Plus className="h-4 w-4" /> Create New {activeTab === "quiz" ? "Quiz" : activeTab === "video" ? "Video" : "Training Item"}
-        </button>
+        {canEdit ? (
+          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-[#3A72EC] text-white rounded-lg hover:bg-[#2a5dbf] transition-colors text-sm font-medium">
+            <Plus className="h-4 w-4" /> Create New {activeTab === "quiz" ? "Quiz" : activeTab === "video" ? "Video" : "Training Item"}
+          </button>
+        ) : isViewOnly ? (
+          <span className="text-xs text-gray-500 italic self-center">View only access</span>
+        ) : null}
       </div>
 
       {showForm && (
@@ -917,18 +924,22 @@ export default function LTModulePage() {
                         <button onClick={() => handleView(item)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
                           <FileSpreadsheet className="h-4 w-4" />
                         </button>
-                        <button onClick={() => openShare(item)} className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="Share">
-                          <Share2 className="h-4 w-4" />
-                        </button>
                         <button onClick={() => handleShowUserDetails(item)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="View Shared & Attempted Users">
                           <Users className="h-4 w-4" />
                         </button>
-                        <button onClick={() => openEdit(item)} className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="Edit">
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button onClick={() => handleDelete(item.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {canEdit && (
+                          <>
+                            <button onClick={() => openShare(item)} className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors" title="Share">
+                              <Share2 className="h-4 w-4" />
+                            </button>
+                            <button onClick={() => openEdit(item)} className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="Edit">
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button onClick={() => handleDelete(item.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

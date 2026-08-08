@@ -257,6 +257,7 @@ class GroupDelegation(models.Model):
 
     class Meta:
         unique_together = ['collaborative_submission', 'audit_group']
+        ordering = ['group_order']
         indexes = [
             models.Index(fields=['collaborative_submission']),
             models.Index(fields=['audit_group']),

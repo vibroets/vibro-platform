@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vibro — Launch Video Slideshow</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#000;overflow:hidden;user-select:none}
+#slideshow{width:100vw;height:100vh;position:relative;cursor:pointer}
+.slide{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;transition:opacity .8s ease-in-out;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.slide.active{opacity:1}
+.slide::before{content:'';position:absolute;top:-20%;right:-10%;width:600px;height:600px;background:radial-gradient(circle,rgba(255,255,255,.06) 0%,transparent 70%);border-radius:50%;pointer-events:none}
+.slide::after{content:'';position:absolute;bottom:-20%;left:-10%;width:500px;height:500px;background:radial-gradient(circle,rgba(255,255,255,.04) 0%,transparent 70%);border-radius:50%;pointer-events:none}
+.slide-content{position:relative;z-index:2;text-align:center;color:#fff;max-width:1100px;padding:40px}
+.bg-dark{background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%)}
+.bg-blue{background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 50%,#3b82f6 100%)}
+.bg-teal{background:linear-gradient(135deg,#134e4a 0%,#0d9488 100%)}
+.bg-purple{background:linear-gradient(135deg,#1e1b4b 0%,#4f46e5 100%)}
+.bg-indigo{background:linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%)}
+.bg-green{background:linear-gradient(135deg,#052e16 0%,#059669 100%)}
+.bg-cyan{background:linear-gradient(135deg,#083344 0%,#0891b2 100%)}
+.bg-red{background:linear-gradient(135deg,#450a0a 0%,#dc2626 100%)}
+.bg-orange{background:linear-gradient(135deg,#431407 0%,#c2410c 100%)}
+.bg-pink{background:linear-gradient(135deg,#500724 0%,#be185d 100%)}
+.scene-num{position:absolute;top:30px;left:30px;font-size:14px;font-weight:600;color:rgba(255,255,255,.3);letter-spacing:2px;text-transform:uppercase}
+.badge{display:inline-block;background:rgba(255,255,255,.12);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);padding:8px 20px;border-radius:24px;font-size:14px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:24px;opacity:0}
+.slide.active .badge{animation:fadeUp .6s ease .2s forwards}
+.slide-title{font-size:52px;font-weight:900;line-height:1.1;margin-bottom:20px;letter-spacing:-1px;opacity:0}
+.slide.active .slide-title{animation:fadeUp .8s ease .4s forwards}
+.slide-subtitle{font-size:22px;font-weight:300;line-height:1.5;opacity:0;max-width:700px;margin:0 auto}
+.slide.active .slide-subtitle{animation:fadeUp .8s ease .6s forwards}
+.feature-list{list-style:none;margin-top:24px;display:inline-flex;flex-wrap:wrap;gap:10px;justify-content:center;opacity:0}
+.slide.active .feature-list{animation:fadeIn 1s ease .8s forwards}
+.feature-list li{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);padding:8px 20px;border-radius:30px;font-size:15px;font-weight:500;backdrop-filter:blur(5px)}
+.logo{font-size:72px;font-weight:900;letter-spacing:-2px;margin-bottom:16px;opacity:0}
+.slide.active .logo{animation:scaleIn 1s ease .3s forwards}
+.logo .accent{background:linear-gradient(90deg,#60a5fa,#a78bfa,#60a5fa);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 3s linear infinite}
+@keyframes shimmer{to{background-position:200% center}}
+.platforms{display:flex;gap:16px;justify-content:center;margin-top:32px;opacity:0}
+.slide.active .platforms{animation:fadeUp .8s ease .8s forwards}
+.platform-pill{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);padding:10px 24px;border-radius:12px;font-size:16px;font-weight:500;display:flex;align-items:center;gap:10px}
+.stats-row{display:flex;gap:40px;justify-content:center;margin-top:36px;opacity:0}
+.slide.active .stats-row{animation:fadeUp .8s ease .7s forwards}
+.stat-box{text-align:center}
+.stat-box .num{font-size:48px;font-weight:900;color:#60a5fa;line-height:1}
+.stat-box .label{font-size:13px;text-transform:uppercase;letter-spacing:1.5px;opacity:.6;margin-top:8px}
+.cta-row{display:flex;gap:16px;justify-content:center;margin-top:36px;opacity:0}
+.slide.active .cta-row{animation:fadeUp .8s ease .9s forwards}
+.cta-pill{background:#fff;color:#2563eb;padding:14px 32px;border-radius:12px;font-size:17px;font-weight:700;display:inline-flex;align-items:center;gap:10px}
+.cta-pill.outline{background:transparent;border:2px solid rgba(255,255,255,.4);color:#fff}
+.contact-info{margin-top:28px;font-size:16px;opacity:0;color:rgba(255,255,255,.6)}
+.slide.active .contact-info{animation:fadeIn 1s ease 1.1s forwards}
+@keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes scaleIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+@keyframes slideLeft{from{opacity:0;transform:translateX(-50px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideRight{from{opacity:0;transform:translateX(50px)}to{opacity:1;transform:translateX(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes typing{from{width:0}to{width:100%}}
+@keyframes fillBar{from{width:0}to{width:var(--fill)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* ===== PHONE FRAME ===== */
+.phone-frame{width:340px;height:680px;background:#1a1a2e;border-radius:42px;padding:12px;box-shadow:0 30px 80px rgba(0,0,0,.5),inset 0 0 0 2px rgba(255,255,255,.05);position:relative;opacity:0;flex-shrink:0}
+.slide.active .phone-frame{animation:slideRight .8s ease .5s forwards}
+.phone-screen{width:100%;height:100%;background:#f9fafb;border-radius:32px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.phone-notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:28px;background:#1a1a2e;border-radius:0 0 18px 18px;z-index:10}
+.phone-status{height:36px;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-size:13px;font-weight:600;color:#111827;flex-shrink:0}
+.phone-status .icons{display:flex;gap:5px;align-items:center;font-size:12px}
+.phone-body{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.phone-tabbar{height:56px;background:#fff;border-top:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-around;flex-shrink:0}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;color:#9ca3af}
+.tab-item.active{color:#2563eb}
+.tab-item .tab-icon{font-size:20px}
+
+/* ===== WEB FRAME ===== */
+.web-frame{width:700px;background:#fff;border-radius:12px;box-shadow:0 30px 80px rgba(0,0,0,.5);overflow:hidden;opacity:0;flex-shrink:0}
+.slide.active .web-frame{animation:slideLeft .8s ease .5s forwards}
+.web-titlebar{height:32px;background:#1e293b;display:flex;align-items:center;padding:0 12px;gap:6px}
+.web-titlebar .dot{width:10px;height:10px;border-radius:50%}
+.web-titlebar .dot.r{background:#ef4444}.web-titlebar .dot.y{background:#f59e0b}.web-titlebar .dot.g{background:#10b981}
+.web-titlebar .url{flex:1;margin-left:12px;background:#374151;border-radius:6px;height:18px;font-size:10px;color:#9ca3af;display:flex;align-items:center;padding:0 8px}
+.web-content{display:flex;flex-direction:column;min-height:440px}
+
+/* ===== MOCKUP UI ELEMENTS ===== */
+.app-header{background:#fff;padding:12px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between}
+.app-header .title{font-size:18px;font-weight:700;color:#111827}
+.app-header .avatar{width:32px;height:32px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700}
+.search-bar{background:#fff;margin:10px 12px;padding:8px 12px;border-radius:10px;border:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;font-size:14px;color:#9ca3af}
+.card{background:#fff;border-radius:12px;padding:12px;margin:0 12px 10px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid #f0f0f0;text-align:left}
+.card-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.card-avatar{width:28px;height:28px;border-radius:50%;background:#f3f4f6;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:12px}
+.card-title{font-size:14px;font-weight:700;color:#111827}
+.card-meta{font-size:11px;color:#6b7280;margin-top:1px}
+.card-body{font-size:13px;color:#374151;line-height:18px}
+.card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid #f3f4f6}
+.card-action{display:flex;align-items:center;gap:4px;font-size:12px;color:#6b7280;font-weight:500}
+.ack-btn{background:#ecfdf5;border:1px solid #059669;color:#059669;padding:3px 10px;border-radius:16px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px}
+
+/* Accordion */
+.accordion-group{margin:0 12px 8px;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;text-align:left}
+.accordion-header{padding:10px 12px;display:flex;align-items:center;justify-content:space-between;background:#f0f9ff;border-bottom:1px solid #e0f2fe}
+.accordion-header .grp-name{font-size:13px;font-weight:700;color:#0c4a6e}
+.accordion-header .grp-score{font-size:12px;font-weight:700;color:#2563eb;background:#dbeafe;padding:2px 10px;border-radius:12px}
+.accordion-body{padding:8px 12px}
+.audit-q{padding:8px 0;border-bottom:1px solid #f3f4f6}
+.audit-q:last-child{border-bottom:none}
+.audit-q-text{font-size:12px;color:#374151;font-weight:500;margin-bottom:6px}
+.audit-opts{display:flex;gap:6px;flex-wrap:wrap}
+.audit-opt{padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600;border:1px solid #e5e7eb;color:#6b7280}
+.audit-opt.selected{background:#2563eb;color:#fff;border-color:#2563eb}
+.audit-opt.ok-sel{background:#059669;color:#fff;border-color:#059669}
+.audit-opt.nok-sel{background:#dc2626;color:#fff;border-color:#dc2626}
+
+/* Planner */
+.planner-card{background:#fff;border-radius:12px;padding:12px;margin:0 12px 8px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid #f0f0f0;text-align:left}
+.planner-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.planner-id{font-size:11px;font-weight:700;color:#4f46e5;background:#e0e7ff;padding:2px 8px;border-radius:8px}
+.planner-status{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px}
+.status-new{background:#fef3c7;color:#d97706}
+.status-progress{background:#dbeafe;color:#2563eb}
+.status-done{background:#d1fae5;color:#059669}
+.planner-title{font-size:14px;font-weight:700;color:#111827;margin-bottom:4px}
+.planner-meta{display:flex;gap:10px;font-size:11px;color:#6b7280;align-items:center}
+.planner-folder{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:2px 8px;border-radius:8px}
+
+/* Learn */
+.learn-stats{display:flex;gap:8px;padding:10px 12px}
+.learn-stat{flex:1;background:#fff;border-radius:10px;padding:10px;text-align:center;border:1px solid #e5e7eb}
+.learn-stat .num{font-size:24px;font-weight:800}
+.learn-stat .lbl{font-size:10px;color:#6b7280;text-transform:uppercase;margin-top:2px}
+.learn-card{background:#fff;border-radius:10px;padding:10px 12px;margin:0 12px 6px;display:flex;align-items:center;gap:10px;border:1px solid #f0f0f0;text-align:left}
+.learn-card-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.learn-card-info{flex:1}
+.learn-card-title{font-size:13px;font-weight:700;color:#111827}
+.learn-card-meta{font-size:11px;color:#6b7280;margin-top:2px}
+.learn-card-btn{background:#2563eb;color:#fff;padding:5px 14px;border-radius:8px;font-size:11px;font-weight:700}
+
+/* Admin table */
+.admin-sidebar{width:160px;background:#1e293b;min-height:100%;padding:12px 0;flex-shrink:0}
+.admin-logo{color:#fff;font-size:18px;font-weight:900;padding:8px 16px 16px}
+.admin-nav-item{padding:8px 16px;font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:8px;cursor:pointer}
+.admin-nav-item.active{background:rgba(255,255,255,.05);color:#fff;border-left:3px solid #2563eb}
+.admin-main{flex:1;padding:16px;background:#f8fafc;text-align:left}
+.admin-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.admin-header h3{font-size:18px;font-weight:700;color:#111827}
+.admin-table{width:100%;border-collapse:collapse;font-size:12px}
+.admin-table th{background:#f1f5f9;padding:8px 10px;text-align:left;font-weight:700;color:#374151;border-bottom:2px solid #e2e8f0}
+.admin-table td{padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#374151}
+.admin-table .role-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px}
+.role-admin{background:#dbeafe;color:#2563eb}
+.role-user{background:#f3f4f6;color:#6b7280}
+.role-super{background:#fce7f3;color:#db2777}
+
+/* Chat */
+.chat-fab{position:absolute;bottom:70px;right:14px;width:52px;height:52px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;box-shadow:0 4px 12px rgba(37,99,235,.4)}
+.chat-modal{position:absolute;bottom:0;left:0;right:0;height:75%;background:#fff;border-radius:20px 20px 0 0;display:flex;flex-direction:column}
+.chat-modal-header{padding:12px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between}
+.chat-modal-header .title{font-size:16px;font-weight:700;color:#111827}
+.chat-msg{padding:8px 14px;margin:0 12px 6px;max-width:75%;border-radius:12px;font-size:13px;line-height:18px}
+.chat-msg.sent{background:#2563eb;color:#fff;align-self:flex-end;margin-left:auto}
+.chat-msg.recv{background:#f3f4f6;color:#111827;align-self:flex-start}
+.chat-input{padding:10px 12px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:8px}
+.chat-input-field{flex:1;background:#f3f4f6;border-radius:20px;padding:8px 14px;font-size:13px;color:#9ca3af}
+
+/* GPS */
+.gps-card{background:#fff;border-radius:12px;padding:14px;margin:0 12px 10px;border:1px solid #f0f0f0;text-align:left}
+.gps-map{height:140px;background:linear-gradient(135deg,#e0f2fe,#bae6fd);border-radius:10px;margin-bottom:10px;position:relative;overflow:hidden}
+.gps-pin{position:absolute;top:40%;left:45%;width:28px;height:28px;background:#dc2626;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.gps-pin::after{content:'';position:absolute;top:6px;left:6px;width:16px;height:16px;background:#fff;border-radius:50%}
+.gps-info{font-size:12px;color:#374151;line-height:18px}
+.gps-coords{font-family:monospace;font-size:11px;color:#6b7280;margin-top:4px}
+
+/* Follow-up */
+.task-card{background:#fff;border-radius:12px;padding:12px;margin:0 12px 8px;border-left:4px solid #ea580c;text-align:left}
+.task-card .task-title{font-size:13px;font-weight:700;color:#111827}
+.task-card .task-desc{font-size:12px;color:#6b7280;margin-top:4px}
+.task-card .task-meta{display:flex;gap:8px;margin-top:6px;align-items:center}
+.task-priority{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;background:#ffedd5;color:#c2410c}
+
+/* Form builder */
+.fb-sidebar{width:160px;background:#1e293b;padding:12px 8px;flex-shrink:0}
+.fb-sidebar h4{color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:4px 8px;margin-bottom:4px}
+.fb-qtype{background:rgba(255,255,255,.05);border-radius:8px;padding:8px 10px;margin-bottom:4px;font-size:11px;color:#cbd5e1;display:flex;align-items:center;gap:6px;cursor:pointer}
+.fb-qtype:hover{background:rgba(255,255,255,.1)}
+.fb-canvas{flex:1;padding:16px;background:#f8fafc;overflow:hidden;text-align:left}
+.fb-question{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:10px}
+.fb-q-label{font-size:13px;font-weight:600;color:#111827;margin-bottom:6px}
+.fb-q-input{background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:12px;color:#9ca3af}
+.fb-audit-opts{display:flex;gap:6px;margin-top:6px}
+.fb-audit-opt{background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;font-size:11px;color:#374151;display:flex;align-items:center;gap:4px}
+.fb-audit-opt .score{font-size:10px;font-weight:700;color:#2563eb;background:#dbeafe;padding:1px 6px;border-radius:8px}
+
+/* Split layout */
+.split-layout{display:flex;gap:30px;align-items:center;justify-content:center;width:100%}
+.split-text{flex:1;max-width:450px;text-align:left}
+.split-mockup{flex-shrink:0}
+
+/* Progress bar */
+#progress-bar{position:fixed;bottom:0;left:0;height:4px;background:linear-gradient(90deg,#2563eb,#60a5fa);width:0%;z-index:100;transition:width .1s linear}
+#counter{position:fixed;top:20px;right:20px;color:rgba(255,255,255,.5);font-size:14px;font-weight:500;z-index:100}
+#controls{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:100;opacity:0;transition:opacity .3s}
+#slideshow:hover #controls{opacity:1}
+.ctrl-btn{background:rgba(255,255,255,.15);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);color:#fff;width:44px;height:44px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.ctrl-btn:hover{background:rgba(255,255,255,.3)}
+#rec-hint{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(220,38,38,.9);color:#fff;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:600;z-index:100;display:none;align-items:center;gap:8px}
+#rec-hint.show{display:flex}
+.rec-dot{width:8px;height:8px;background:#fff;border-radius:50%;animation:pulse 1s infinite}
+
+/* Score animation */
+.score-anim{display:inline-block;animation:scoreCount 2s ease forwards}
+@keyframes scoreCount{0%{opacity:0;transform:scale(.5)}50%{opacity:1;transform:scale(1.2)}100%{opacity:1;transform:scale(1)}}
+
+/* Progress ring */
+.progress-ring{width:56px;height:56px;position:relative;display:inline-flex;align-items:center;justify-content:center}
+.progress-ring svg{transform:rotate(-90deg)}
+.progress-ring .pct{position:absolute;font-size:12px;font-weight:700}
+
+/* Notification bell */
+.bell-badge{position:absolute;top:-2px;right:-2px;width:16px;height:16px;background:#dc2626;border-radius:50%;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+</style>
+</head>
+<body>
+<div id="rec-hint"><div class="rec-dot"></div> PRESS SPACE TO PLAY/PAUSE • F FOR FULLSCREEN • R FOR RECORDING MODE</div>
+<div id="counter">1 / 11</div>
+<div id="progress-bar"></div>
+
+<div id="slideshow">
+
+<!-- SLIDE 1: Hook / Logo -->
+<div class="slide bg-dark active" data-duration="5000">
+<div class="scene-num">Scene 01</div>
+<div class="slide-content">
+<div class="logo">Vibro</div>
+<div class="slide-title">Operational Excellence,<br><span style="background:linear-gradient(90deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Simplified.</span></div>
+<div class="slide-subtitle">One platform. Every tool your team needs.<br>Forms, audits, planners, training, and more.</div>
+<div class="platforms">
+<div class="platform-pill">📱 iOS & Android</div>
+<div class="platform-pill">💻 Web Console</div>
+<div class="platform-pill">☁️ Cloud-Powered</div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 2: Home Dashboard -->
+<div class="slide bg-blue" data-duration="6000">
+<div class="scene-num">Scene 02</div>
+<div class="slide-content">
+<div class="split-layout">
+<div class="split-text">
+<div class="badge">🏠 Home Dashboard</div>
+<div class="slide-title" style="text-align:left">Your Operation,<br>At a Glance</div>
+<div class="slide-subtitle" style="text-align:left;margin:0">Get a bird's-eye view of your entire operation — announcements, forms, planners, and tasks, all in one place.</div>
+<ul class="feature-list" style="justify-content:flex-start">
+<li>✓ Smart search</li>
+<li>✓ Real-time announcements</li>
+<li>✓ Like & acknowledge</li>
+<li>✓ File attachments</li>
+</ul>
+</div>
+<div class="split-mockup">
+<div class="phone-frame">
+<div class="phone-notch"></div>
+<div class="phone-screen">
+<div class="phone-status"><span>9:41</span><span class="icons">📶 📡 🔋</span></div>
+<div class="phone-body">
+<div class="app-header"><span class="title">Home</span><div style="position:relative"><span style="font-size:20px">🔔</span><div class="bell-badge">3</div></div></div>
+<div class="search-bar">🔍 Search announcements...</div>
+<div style="flex:1;overflow:hidden;padding-top:4px">
+<div class="card">
+<div class="card-header">
+<div class="card-avatar">📋</div>
+<div><div class="card-title">Admin Office</div><div class="card-meta">27 Jul • General</div></div>
+<div style="margin-left:auto">📌</div>
+</div>
+<div class="card-body"><strong>Monthly Safety Audit Schedule</strong><br>All teams must complete safety audits by July 31st.</div>
+<div class="card-footer">
+<div class="card-action">❤️ Like</div>
+<div style="display:flex;gap:6px">
+<div class="ack-btn">✓ Ack</div>
+<div style="background:#eff6ff;border-radius:20px;padding:4px 8px">→</div>
+</div>
+</div>
+</div>
+<div class="card">
+<div class="card-header">
+<div class="card-avatar">📢</div>
+<div><div class="card-title">Operations</div><div class="card-meta">26 Jul • Training</div></div>
+</div>
+<div class="card-body"><strong>New Training Module Available</strong><br>Complete the safety quiz before deadline.</div>
+<div class="card-footer">
+<div class="card-action">🤍 Like</div>
+<div class="ack-btn" style="background:#059669;color:#fff;border-color:#059669">✓ Acked</div>
+</div>
+</div>
+<div class="card">
+<div class="card-header">
+<div class="card-avatar">⚙️</div>
+<div><div class="card-title">System</div><div class="card-meta">25 Jul • Update</div></div>
+<div style="margin-left:auto">📎 2</div>
+</div>
+<div class="card-body"><strong>Q3 Audit Forms Released</strong><br>New forms now available in the Forms tab.</div>
+</div>
+</div>
+<div class="phone-tabbar">
+<div class="tab-item active"><span class="tab-icon">🏠</span>Home</div>
+<div class="tab-item"><span class="tab-icon">📊</span>Polls</div>
+<div class="tab-item"><span class="tab-icon">📋</span>Forms</div>
+<div class="tab-item"><span class="tab-icon">📅</span>Plans</div>
+<div class="tab-item"><span class="tab-icon">✓</span>To-Do</div>
+<div class="tab-item"><span class="tab-icon">🎓</span>Learn</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 3: Smart Forms & Audits -->
+<div class="slide bg-teal" data-duration="7000">
+<div class="scene-num">Scene 03</div>
+<div class="slide-content">
+<div class="split-layout">
+<div class="split-text">
+<div class="badge">📋 Smart Forms</div>
+<div class="slide-title" style="text-align:left">Intelligent Forms with<br>Auto-Calculated Scores</div>
+<div class="slide-subtitle" style="text-align:left;margin:0">Audit forms with OK / Not OK scoring, critical item tracking, and real-time pass/fail percentages.</div>
+<ul class="feature-list" style="justify-content:flex-start">
+<li>✓ Auto-scoring</li>
+<li>✓ Conditional logic</li>
+<li>✓ Critical items</li>
+<li>✓ Pass/Fail %</li>
+</ul>
+</div>
+<div class="split-mockup">
+<div class="phone-frame">
+<div class="phone-notch"></div>
+<div class="phone-screen">
+<div class="phone-status"><span>9:41</span><span class="icons">📶 📡 🔋</span></div>
+<div class="phone-body">
+<div class="app-header"><span style="font-size:18px">←</span><span class="title">Safety Audit</span><span style="font-size:14px;color:#2563eb;font-weight:600">3/7</span></div>
+<div style="flex:1;overflow:hidden;padding:8px 0">
+<div class="accordion-group">
+<div class="accordion-header">
+<span class="grp-name">📋 Group 1: PPE Inspection</span>
+<span class="grp-score">2/3</span>
+</div>
+<div class="accordion-body">
+<div class="audit-q">
+<div class="audit-q-text">1. Safety helmet worn?</div>
+<div class="audit-opts">
+<div class="audit-opt ok-sel">✓ OK</div>
+<div class="audit-opt">Not OK (Deviation)</div>
+<div class="audit-opt">Not OK (Not Close)</div>
+</div>
+</div>
+<div class="audit-q">
+<div class="audit-q-text">2. Safety harness secured?</div>
+<div class="audit-opts">
+<div class="audit-opt ok-sel">✓ OK</div>
+<div class="audit-opt">Not OK (Deviation)</div>
+<div class="audit-opt">Not OK (Not Close)</div>
+</div>
+</div>
+<div class="audit-q">
+<div class="audit-q-text">3. Safety glasses worn?</div>
+<div class="audit-opts">
+<div class="audit-opt">OK</div>
+<div class="audit-opt">Not OK (Deviation)</div>
+<div class="audit-opt nok-sel">✗ Not Close</div>
+</div>
+</div>
+</div>
+</div>
+<div class="accordion-group">
+<div class="accordion-header">
+<span class="grp-name">📋 Group 2: Tool Inspection</span>
+<span class="grp-score">1/4</span>
+</div>
+<div class="accordion-body">
+<div class="audit-q">
+<div class="audit-q-text">4. All tools calibrated?</div>
+<div class="audit-opts">
+<div class="audit-opt ok-sel">✓ OK</div>
+<div class="audit-opt">Not OK (Deviation)</div>
+<div class="audit-opt">Not OK (Not Close)</div>
+</div>
+</div>
+<div class="audit-q">
+<div class="audit-q-text">5. Tools properly stored?</div>
+<div class="audit-opts">
+<div class="audit-opt">OK</div>
+<div class="audit-opt">Not OK (Deviation)</div>
+<div class="audit-opt">Not OK (Not Close)</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="phone-tabbar">
+<div class="tab-item"><span class="tab-icon">🏠</span>Home</div>
+<div class="tab-item"><span class="tab-icon">📊</span>Polls</div>
+<div class="tab-item active"><span class="tab-icon">📋</span>Forms</div>
+<div class="tab-item"><span class="tab-icon">📅</span>Plans</div>
+<div class="tab-item"><span class="tab-icon">✓</span>To-Do</div>
+<div class="tab-item"><span class="tab-icon">🎓</span>Learn</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 4: Form Builder -->
+<div class="slide bg-purple" data-duration="6000">
+<div class="scene-num">Scene 04</div>
+<div class="slide-content">
+<div class="split-layout">
+<div class="split-text">
+<div class="badge">🎨 Form Builder</div>
+<div class="slide-title" style="text-align:left">Drag-and-Drop<br>Form Builder</div>
+<div class="slide-subtitle" style="text-align:left;margin:0">Design any form in minutes with 15+ question types, formulas, file uploads, signatures, and QR scanning.</div>
+<ul class="feature-list" style="justify-content:flex-start">
+<li>✓ 15+ Question types</li>
+<li>✓ Bulk Excel import</li>
+<li>✓ Formula fields</li>
+<li>✓ Digital signatures</li>
+</ul>
+</div>
+<div class="split-mockup">
+<div class="web-frame">
+<div class="web-titlebar">
+<div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+<div class="url">🔒 vibro.app/admin/forms/create</div>
+</div>
+<div class="web-content" style="display:flex;flex-direction:row">
+<div class="fb-sidebar">
+<h4>Question Types</h4>
+<div class="fb-qtype">📝 Text Input</div>
+<div class="fb-qtype">🔘 Single Choice</div>
+<div class="fb-qtype">☑️ Multiple Choice</div>
+<div class="fb-qtype">📊 Audit Question</div>
+<div class="fb-qtype">📅 Date Picker</div>
+<div class="fb-qtype">📷 Photo Upload</div>
+<div class="fb-qtype">✍️ Signature</div>
+<div class="fb-qtype">📱 QR Scanner</div>
+<div class="fb-qtype">🔢 Formula</div>
+<div class="fb-qtype">📍 GPS Location</div>
+</div>
+<div class="fb-canvas">
+<div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+<h3 style="font-size:16px;font-weight:700;color:#111827">Safety Audit Form</h3>
+<div style="display:flex;gap:6px">
+<span style="background:#059669;color:#fff;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700">💾 Save Form</span>
+<span style="background:#f3f4f6;color:#374151;padding:4px 12px;border-radius:8px;font-size:11px;font-weight:700">📊 Total: 7</span>
+</div>
+</div>
+<div class="fb-question">
+<div class="fb-q-label">Q1: PPE Inspection (Audit)</div>
+<div class="fb-q-input">Is the safety equipment properly worn?</div>
+<div class="fb-audit-opts">
+<div class="fb-audit-opt">OK <span class="score">1</span></div>
+<div class="fb-audit-opt">Not OK (Deviation) <span class="score">1</span></div>
+<div class="fb-audit-opt">Not OK (Not Close) <span class="score">0</span></div>
+</div>
+</div>
+<div class="fb-question">
+<div class="fb-q-label">Q2: Tool Condition (Audit)</div>
+<div class="fb-q-input">Are all tools in good condition?</div>
+<div class="fb-audit-opts">
+<div class="fb-audit-opt">OK <span class="score">1</span></div>
+<div class="fb-audit-opt">Not OK (Deviation) <span class="score">1</span></div>
+<div class="fb-audit-opt">Not OK (Not Close) <span class="score">0</span></div>
+</div>
+</div>
+<div class="fb-question">
+<div class="fb-q-label">Q3: Photo Evidence</div>
+<div class="fb-q-input">📷 Upload photo of work area...</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 5: Smart Planner -->
+<div class="slide bg-indigo" data-duration="6000">
+<div class="scene-num">Scene 05</div>
+<div class="slide-content">
+<div class="split-layout">
+<div class="split-text">
+<div class="badge">📅 Smart Planner</div>
+<div class="slide-title" style="text-align:left">Plan, Assign,<br>and Track Tasks</div>
+<div class="slide-subtitle" style="text-align:left;margin:0">Assign tasks to teams with deadlines, repeat schedules, and early notifications. First-come-first-served with automatic team sync.</div>
+<ul class="feature-list" style="justify-content:flex-start">
+<li>✓ Team assignment</li>
+<li>✓ Repeat scheduling</li>
+<li>✓ Smart notifications</li>
+<li>✓ Folder organization</li>
+</ul>
+</div>
+<div class="split-mockup">
+<div class="phone-frame">
+<div class="phone-notch"></div>
+<div class="phone-screen">
+<div class="phone-status"><span>9:41</span><span class="icons">📶 📡 🔋</span></div>
+<div class="phone-body">
+<div class="app-header"><span class="title">Planner</span><span style="font-size:18px">⚙️</span></div>
+<div style="display:flex;gap:4px;padding:6px 12px">
+<div style="flex:1;background:#2563eb;color:#fff;padding:5px;border-radius:8px;text-align:center;font-size:12px;font-weight:600">New (4)</div>
+<div style="flex:1;background:#f3f4f6;color:#6b7280;padding:5px;border-radius:8px;text-align:center;font-size:12px;font-weight:600">Done (2)</div>
+</div>
+<div style="flex:1;overflow:hidden;padding-top:4px">
+<div class="planner-card">
+<div class="planner-top">
+<span class="planner-id">#PLN-042</span>
+<span class="planner-status status-new">Not Started</span>
+</div>
+<div class="planner-title">Monthly Safety Audit</div>
+<div class="planner-meta">
+<span>📅 Due in 3 days</span>
+<span class="planner-folder" style="background:#dbeafe;color:#2563eb">📁 Safety</span>
+</div>
+</div>
+<div class="planner-card">
+<div class="planner-top">
+<span class="planner-id">#PLN-039</span>
+<span class="planner-status status-progress">In Progress</span>
+</div>
+<div class="planner-title">WTG V82 PM Inspection</div>
+<div class="planner-meta">
+<span>📅 Due tomorrow</span>
+<span class="planner-folder" style="background:#fef3c7;color:#d97706">📁 Maintenance</span>
+</div>
+</div>
+<div class="planner-card">
+<div class="planner-top">
+<span class="planner-id">#PLN-038</span>
+<span class="planner-status status-done">Completed</span>
+</div>
+<div class="planner-title">Q3 Compliance Check</div>
+<div class="planner-meta">
+<span>✓ Done 25 Jul</span>
+<span class="planner-folder" style="background:#d1fae5;color:#059669">📁 Compliance</span>
+</div>
+</div>
+<div class="planner-card">
+<div class="planner-top">
+<span class="planner-id">#PLN-037</span>
+<span class="planner-status status-new">Not Started</span>
+</div>
+<div class="planner-title">Weekly Tool Inspection</div>
+<div class="planner-meta">
+<span>📅 Due in 5 days</span>
+<span style="font-size:10px;color:#ea580c;font-weight:600">🔁 Repeats weekly</span>
+</div>
+</div>
+</div>
+<div class="phone-tabbar">
+<div class="tab-item"><span class="tab-icon">🏠</span>Home</div>
+<div class="tab-item"><span class="tab-icon">📊</span>Polls</div>
+<div class="tab-item"><span class="tab-icon">📋</span>Forms</div>
+<div class="tab-item active"><span class="tab-icon">📅</span>Plans</div>
+<div class="tab-item"><span class="tab-icon">✓</span>To-Do</div>
+<div class="tab-item"><span class="tab-icon">🎓</span>Learn</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 6: Learn Module -->
+<div class="slide bg-green" data-duration="6000">
+<div class="scene-num">Scene 06</div>
+<div class="slide-content">
+<div class="split-layout">
+<div class="split-text">
+<div class="badge">🎓 Learn & Train</div>
+<div class="slide-title" style="text-align:left">Train Your Team.<br>Track Progress.</div>
+<div class="slide-subtitle" style="text-align:left;margin:0">Assign quizzes, videos, and training modules. Track completion, generate certificates, and schedule training sessions.</div>
+<ul class="feature-list" style="justify-content:flex-start">
+<li>✓ Quizzes</li>
+<li>✓ Video training</li>
+<li>✓ Certificates</li>
+<li>✓ Scheduled sessions</li>
+</ul>
+</div>
+<div class="split-mockup">
+<div class="phone-frame">
+<div class="phone-notch"></div>
+<div class="phone-screen">
+<div class="phone-status"><span>9:41</span><span class="icons">📶 📡 🔋</span></div>
+<div class="phone-body">
+<div class="app-header"><span class="title">Learn</span><span style="font-size:14px;color:#6b7280">My Training</span></div>
+<div class="learn-stats">
+<div class="learn-stat"><div class="num" style="color:#2563eb">3</div><div class="lbl">Quizzes</div></div>
+<div class="learn-stat"><div class="num" style="color:#059669">5</div><div class="lbl">Videos</div></div>
+<div class="learn-stat"><div class="num" style="color:#4f46e5">2</div><div class="lbl">Trainings</div></div>
+</div>
+<div style="flex:1;overflow:hidden;padding-top:4px">
+<div class="learn-card">
+<div class="learn-card-icon" style="background:#dbeafe">📝</div>
+<div class="learn-card-info">
+<div class="learn-card-title">Safety Quiz — Module 3</div>
+<div class="learn-card-meta">10 questions • 30 min • Pass 70%</div>
+</div>
+<div class="learn-card-btn">Start</div>
+</div>
+<div class="learn-card">
+<div class="learn-card-icon" style="background:#d1fae5">🎥</div>
+<div class="learn-card-info">
+<div class="learn-card-title">Lifting Operations Video</div>
+<div class="learn-card-meta">15 min • Assigned 24 Jul</div>
+</div>
+<div class="learn-card-btn">Watch</div>
+</div>
+<div class="learn-card">
+<div class="learn-card-icon" style="background:#e0e7ff">🎓</div>
+<div class="learn-card-info">
+<div class="learn-card-title">GWO Basic Training</div>
+<div class="learn-card-meta">Scheduled 30 Jul • 09:00 AM</div>
+</div>
+<div class="learn-card-btn" style="background:#059669">Check In</div>
+</div>
+<div class="learn-card">
+<div class="learn-card-icon" style="background:#fef3c7">🏆</div>
+<div class="learn-card-info">
+<div class="learn-card-title">Safety Certificate</div>
+<div class="learn-card-meta">Completed • Score: 92%</div>
+</div>
+<div class="learn-card-btn" style="background:#f3f4f6;color:#6b7280">View</div>
+</div>
+</div>
+<div class="phone-tabbar">
+<div class="tab-item"><span class="tab-icon">🏠</span>Home</div>
+<div class="tab-item"><span class="tab-icon">📊</span>Polls</div>
+<div class="tab-item"><span class="tab-icon">📋</span>Forms</div>
+<div class="tab-item"><span class="tab-icon">📅</span>Plans</div>
+<div class="tab-item"><span class="tab-icon">✓</span>To-Do</div>
+<div class="tab-item active"><span class="tab-icon">🎓</span>Learn</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 7: Announcements & Polls -->
+<div class="slide bg-cyan" data-duration="5000">
+<div class="scene-num">Scene 07</div>
+<div class="slide-content">
+<div class="split-layout">
+<div class="split-text">
+<div class="badge">📢 Announcements & Polls</div>
+<div class="slide-title" style="text-align:left">Keep Everyone<br>Connected</div>
+<div class="slide-subtitle" style="text-align:left;margin:0">Broadcast announcements, run interactive polls, and get instant feedback from your entire organization.</div>
+</div>
+<div class="split-mockup">
+<div class="phone-frame">
+<div class="phone-notch"></div>
+<div class="phone-screen">
+<div class="phone-status"><span>9:41</span><span class="icons">📶 📡 🔋</span></div>
+<div class="phone-body">
+<div class="app-header"><span class="title">Polls</span><span style="font-size:18px">+</span></div>
+<div style="flex:1;overflow:hidden;padding:8px 12px">
+<div class="card" style="border:1px solid #e5e7eb">
+<div class="card-header">
+<div class="card-avatar">📊</div>
+<div><div class="card-title">Operations Team</div><div class="card-meta">27 Jul • Active</div></div>
+</div>
+<div class="card-body" style="font-weight:700;font-size:15px">Which audit format works best for your team?</div>
+<div style="margin-top:10px">
+<div style="background:#f3f4f6;border-radius:8px;padding:8px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+<span style="font-size:13px;color:#374151">Digital forms on mobile</span>
+<span style="font-size:12px;font-weight:700;color:#2563eb;background:#dbeafe;padding:2px 10px;border-radius:10px">68%</span>
+</div>
+<div style="background:#2563eb;border-radius:8px;padding:8px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+<span style="font-size:13px;color:#fff;font-weight:600">✓ Paper-based checklists</span>
+<span style="font-size:12px;font-weight:700;color:#fff;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:10px">22%</span>
+</div>
+<div style="background:#f3f4f6;border-radius:8px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+<span style="font-size:13px;color:#374151">Hybrid approach</span>
+<span style="font-size:12px;font-weight:700;color:#2563eb;background:#dbeafe;padding:2px 10px;border-radius:10px">10%</span>
+</div>
+</div>
+<div style="margin-top:8px;font-size:11px;color:#6b7280">45 responses • Closes 30 Jul</div>
+</div>
+<div class="card" style="margin-top:8px">
+<div class="card-header">
+<div class="card-avatar">📢</div>
+<div><div class="card-title">Admin</div><div class="card-meta">26 Jul • Pinned</div></div>
+<div style="margin-left:auto">📌</div>
+</div>
+<div class="card-body"><strong>New Policy Effective August 1</strong><br>All field inspections must use digital forms.</div>
+</div>
+</div>
+<div class="phone-tabbar">
+<div class="tab-item"><span class="tab-icon">🏠</span>Home</div>
+<div class="tab-item active"><span class="tab-icon">📊</span>Polls</div>
+<div class="tab-item"><span class="tab-icon">📋</span>Forms</div>
+<div class="tab-item"><span class="tab-icon">📅</span>Plans</div>
+<div class="tab-item"><span class="tab-icon">✓</span>To-Do</div>
+<div class="tab-item"><span class="tab-icon">🎓</span>Learn</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 8: GPS & Location -->
+<div class="slide bg-red" data-duration="5000">
+<div class="scene-num">Scene 08</div>
+<div class="slide-content">
+<div class="split-layout">
+<div class="split-text">
+<div class="badge">📍 GPS Intelligence</div>
+<div class="slide-title" style="text-align:left">GPS-Verified<br>Submissions</div>
+<div class="slide-subtitle" style="text-align:left;margin:0">Capture GPS coordinates on every form submission. Know exactly where and when your data was collected.</div>
+<ul class="feature-list" style="justify-content:flex-start">
+<li>✓ GPS tagging</li>
+<li>✓ Location assignment</li>
+<li>✓ Attendance tracking</li>
+</ul>
+</div>
+<div class="split-mockup">
+<div class="phone-frame">
+<div class="phone-notch"></div>
+<div class="phone-screen">
+<div class="phone-status"><span>9:41</span><span class="icons">📶 📡 🔋</span></div>
+<div class="phone-body">
+<div class="app-header"><span style="font-size:18px">←</span><span class="title">Form Submission</span><span style="font-size:14px;color:#059669;font-weight:600">Submit</span></div>
+<div style="flex:1;overflow:hidden;padding:8px 0">
+<div class="gps-card">
+<div class="gps-map">
+<div class="gps-pin"></div>
+<div style="position:absolute;bottom:6px;left:8px;background:rgba(255,255,255,.9);padding:4px 8px;border-radius:6px;font-size:10px;font-weight:600;color:#374151">📍 Site V82 — Turbine Area</div>
+</div>
+<div class="gps-info">
+<div style="font-weight:700;font-size:14px;color:#111827">📍 Location Captured</div>
+<div class="gps-coords">Lat: 8.4567° N | Lng: 76.9876° E</div>
+<div style="margin-top:6px;font-size:12px;color:#059669;font-weight:600">✓ Verified at 27 Jul, 9:38 AM</div>
+</div>
+</div>
+<div class="card">
+<div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:6px">📷 Photo Evidence (2)</div>
+<div style="display:flex;gap:6px">
+<div style="flex:1;height:80px;background:linear-gradient(135deg,#d1fae5,#a7f3d0);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px">📷</div>
+<div style="flex:1;height:80px;background:linear-gradient(135deg,#dbeafe,#93c5fd);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px">📷</div>
+</div>
+</div>
+<div class="card">
+<div style="font-size:13px;font-weight:700;color:#111827">✍️ Digital Signature</div>
+<div style="height:60px;background:#f9fafb;border:1px dashed #d1d5db;border-radius:8px;margin-top:6px;display:flex;align-items:center;justify-content:center;font-size:28px;color:#9ca3af;font-style:italic">Signed</div>
+</div>
+</div>
+<div class="phone-tabbar">
+<div class="tab-item"><span class="tab-icon">🏠</span>Home</div>
+<div class="tab-item"><span class="tab-icon">📊</span>Polls</div>
+<div class="tab-item active"><span class="tab-icon">📋</span>Forms</div>
+<div class="tab-item"><span class="tab-icon">📅</span>Plans</div>
+<div class="tab-item"><span class="tab-icon">✓</span>To-Do</div>
+<div class="tab-item"><span class="tab-icon">🎓</span>Learn</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 9: Follow-up Tasks & Chat -->
+<div class="slide bg-orange" data-duration="5000">
+<div class="scene-num">Scene 09</div>
+<div class="slide-content">
+<div class="split-layout">
+<div class="split-text">
+<div class="badge">✅ Follow-up & Chat</div>
+<div class="slide-title" style="text-align:left">Close the Loop<br>Automatically</div>
+<div class="slide-subtitle" style="text-align:left;margin:0">When an audit finds an issue, automatically generate follow-up tasks. Chat with your team in real-time.</div>
+<ul class="feature-list" style="justify-content:flex-start">
+<li>✓ Auto task creation</li>
+<li>✓ Real-time chat</li>
+<li>✓ Voice & file sharing</li>
+<li>✓ Task close-out</li>
+</ul>
+</div>
+<div class="split-mockup">
+<div class="phone-frame">
+<div class="phone-notch"></div>
+<div class="phone-screen">
+<div class="phone-status"><span>9:41</span><span class="icons">📶 📡 🔋</span></div>
+<div class="phone-body">
+<div class="app-header"><span class="title">To-Do</span><span style="font-size:14px;color:#6b7280">3 active</span></div>
+<div style="flex:1;overflow:hidden;padding:8px 0">
+<div class="task-card">
+<div class="task-title">🔧 Fix: Safety harness issue at V82</div>
+<div class="task-desc">Auto-generated from Safety Audit #PLN-042 — Question 2 failed</div>
+<div class="task-meta">
+<span class="task-priority">⚠️ High Priority</span>
+<span style="font-size:10px;color:#6b7280">Due: 29 Jul</span>
+</div>
+</div>
+<div class="task-card" style="border-left-color:#059669">
+<div class="task-title">📋 Complete: Tool calibration check</div>
+<div class="task-desc">From WTG V82 PM Inspection — Tool group</div>
+<div class="task-meta">
+<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;background:#d1fae5;color:#059669">✓ Done</span>
+<span style="font-size:10px;color:#6b7280">Closed 25 Jul</span>
+</div>
+</div>
+<div class="task-card">
+<div class="task-title">📝 Review: PPE compliance report</div>
+<div class="task-desc">From Monthly Safety Audit — PPE group</div>
+<div class="task-meta">
+<span class="task-priority" style="background:#dbeafe;color:#2563eb">📋 Medium</span>
+<span style="font-size:10px;color:#6b7280">Due: 31 Jul</span>
+</div>
+</div>
+</div>
+<div class="chat-fab">💬</div>
+<div class="phone-tabbar">
+<div class="tab-item"><span class="tab-icon">🏠</span>Home</div>
+<div class="tab-item"><span class="tab-icon">📊</span>Polls</div>
+<div class="tab-item"><span class="tab-icon">📋</span>Forms</div>
+<div class="tab-item"><span class="tab-icon">📅</span>Plans</div>
+<div class="tab-item active"><span class="tab-icon">✓</span>To-Do</div>
+<div class="tab-item"><span class="tab-icon">🎓</span>Learn</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 10: Admin Dashboard -->
+<div class="slide bg-pink" data-duration="6000">
+<div class="scene-num">Scene 10</div>
+<div class="slide-content">
+<div class="split-layout">
+<div class="split-text">
+<div class="badge">🔐 Admin Control</div>
+<div class="slide-title" style="text-align:left">Complete Admin<br>Control</div>
+<div class="slide-subtitle" style="text-align:left;margin:0">Manage users, groups, organizations, and locations. View submissions, export reports, and configure access control.</div>
+<ul class="feature-list" style="justify-content:flex-start">
+<li>✓ User management</li>
+<li>✓ Role-based access</li>
+<li>✓ Multi-organization</li>
+<li>✓ Export reports</li>
+</ul>
+</div>
+<div class="split-mockup">
+<div class="web-frame" style="width:620px">
+<div class="web-titlebar">
+<div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+<div class="url">🔒 vibro.app/admin/users</div>
+</div>
+<div class="web-content" style="display:flex;flex-direction:row;min-height:400px">
+<div class="admin-sidebar">
+<div class="admin-logo">Vibro</div>
+<div class="admin-nav-item">📊 Dashboard</div>
+<div class="admin-nav-item active">👥 Users</div>
+<div class="admin-nav-item">🏢 Organizations</div>
+<div class="admin-nav-item">📁 Groups</div>
+<div class="admin-nav-item">📍 Locations</div>
+<div class="admin-nav-item">📋 Forms</div>
+<div class="admin-nav-item">📅 Planner</div>
+<div class="admin-nav-item">🎓 Learning</div>
+<div class="admin-nav-item">📢 Announcements</div>
+</div>
+<div class="admin-main">
+<div class="admin-header">
+<h3>User Management</h3>
+<div style="display:flex;gap:6px">
+<span style="background:#f3f4f6;color:#374151;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:600">📥 Export</span>
+<span style="background:#2563eb;color:#fff;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:600">+ Add User</span>
+</div>
+</div>
+<table class="admin-table">
+<tr><th>Name</th><th>Email</th><th>Role</th><th>Org</th><th>Status</th></tr>
+<tr><td>John Smith</td><td>john@vibro.com</td><td><span class="role-badge role-admin">Admin</span></td><td>GreenTech</td><td>🟢 Active</td></tr>
+<tr><td>Sarah Chen</td><td>sarah@vibro.com</td><td><span class="role-badge role-user">User</span></td><td>GreenTech</td><td>🟢 Active</td></tr>
+<tr><td>Mike Johnson</td><td>mike@vibro.com</td><td><span class="role-badge role-user">User</span></td><td>GreenTech</td><td>🟢 Active</td></tr>
+<tr><td>Admin Root</td><td>admin@vibro.com</td><td><span class="role-badge role-super">Super Admin</span></td><td>All</td><td>🟢 Active</td></tr>
+<tr><td>Lisa Wang</td><td>lisa@vibro.com</td><td><span class="role-badge role-user">User</span></td><td>GreenTech</td><td>⚪ Inactive</td></tr>
+</table>
+<div style="margin-top:12px;display:flex;gap:8px">
+<div style="background:#dbeafe;color:#2563eb;padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;text-align:center;flex:1">👥 24 Users</div>
+<div style="background:#d1fae5;color:#059669;padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;text-align:center;flex:1">🏢 3 Orgs</div>
+<div style="background:#fef3c7;color:#d97706;padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;text-align:center;flex:1">📁 8 Groups</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 11: Outro / CTA -->
+<div class="slide bg-dark" data-duration="7000">
+<div class="scene-num">Scene 11</div>
+<div class="slide-content">
+<div class="logo">Vibro</div>
+<div class="slide-title">Your Operations.<br><span style="background:linear-gradient(90deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Elevated.</span></div>
+<div class="stats-row">
+<div class="stat-box"><div class="num">15+</div><div class="label">Question Types</div></div>
+<div class="stat-box"><div class="num">7</div><div class="label">Modules</div></div>
+<div class="stat-box"><div class="num">∞</div><div class="label">Scalability</div></div>
+</div>
+<div class="cta-row">
+<div class="cta-pill">📱 Download Now</div>
+<div class="cta-pill outline">💻 Web Console</div>
+</div>
+<div class="contact-info">
+Website: www.vibroets.com<br>
+Email: info@vibroets.com | support@vibroets.com<br>
+Contact: 7841984565
+</div>
+</div>
+</div>
+
+</div>
+
+<div id="controls">
+<button class="ctrl-btn" onclick="prevSlide()" title="Previous">⏮</button>
+<button class="ctrl-btn" onclick="togglePlay()" id="play-btn" title="Play/Pause">⏸</button>
+<button class="ctrl-btn" onclick="nextSlide()" title="Next">⏭</button>
+<button class="ctrl-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
+</div>
+
+<script>
+const slides=document.querySelectorAll('.slide');
+const progressBar=document.getElementById('progress-bar');
+const counter=document.getElementById('counter');
+const playBtn=document.getElementById('play-btn');
+const recHint=document.getElementById('rec-hint');
+let currentSlide=0,isPlaying=true,slideTimer=null,progressTimer=null,progressValue=0;
+
+function showSlide(index){
+  slides.forEach((s,i)=>s.classList.toggle('active',i===index));
+  currentSlide=index;
+  counter.textContent=`${index+1} / ${slides.length}`;
+  progressValue=0;
+  if(isPlaying){
+    const duration=parseInt(slides[index].dataset.duration||5000);
+    clearTimeout(slideTimer);clearInterval(progressTimer);
+    progressTimer=setInterval(()=>{
+      progressValue+=(100/slides.length)*(100/duration);
+      progressBar.style.width=`${((index+progressValue/100)/slides.length)*100}%`;
+    },50);
+    slideTimer=setTimeout(()=>{
+      if(currentSlide<slides.length-1) nextSlide();
+      else showSlide(0);
+    },duration);
+  }
+}
+function nextSlide(){showSlide((currentSlide+1)%slides.length)}
+function prevSlide(){showSlide((currentSlide-1+slides.length)%slides.length)}
+function togglePlay(){
+  isPlaying=!isPlaying;
+  playBtn.textContent=isPlaying?'⏸':'▶';
+  if(isPlaying) showSlide(currentSlide);
+  else{clearTimeout(slideTimer);clearInterval(progressTimer)}
+}
+function toggleFullscreen(){
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+}
+document.getElementById('slideshow').addEventListener('click',(e)=>{
+  if(e.target.closest('#controls'))return;
+  nextSlide();
+});
+document.addEventListener('keydown',(e)=>{
+  switch(e.key){
+    case ' ':e.preventDefault();togglePlay();break;
+    case 'ArrowRight':nextSlide();break;
+    case 'ArrowLeft':prevSlide();break;
+    case 'f':case 'F':toggleFullscreen();break;
+    case 'r':case 'R':recHint.classList.toggle('show');break;
+  }
+});
+showSlide(0);
+recHint.classList.add('show');
+setTimeout(()=>recHint.classList.remove('show'),6000);
+</script>
+</body>
+</html>

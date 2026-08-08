@@ -924,7 +924,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff0f0",
   },
   label: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
     marginBottom: 8,
     color: "#333",
@@ -963,13 +963,13 @@ const styles = StyleSheet.create({
   },
   uploadButtonText: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 17,
     color: "#333",
     fontWeight: "500",
   },
   uploadButtonTextMuted: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 17,
     color: "#999",
   },
   uploadButtonAddIcon: {
@@ -989,7 +989,7 @@ const styles = StyleSheet.create({
   progressText: {
     marginLeft: 8,
     color: "#007AFF",
-    fontSize: 14,
+    fontSize: 16,
   },
   fileList: {
     borderWidth: 1,
@@ -1027,12 +1027,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fileName: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#333",
     marginBottom: 2,
   },
   fileSize: {
-    fontSize: 12,
+    fontSize: 14,
     color: "#999",
   },
   removeButton: {
@@ -1043,7 +1043,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#ff4444",
     marginTop: 8,
-    fontSize: 14,
+    fontSize: 16,
   },
 });
 

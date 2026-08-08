@@ -3,12 +3,14 @@ import { createMaterialTopTabNavigator } from "@react-navigation/material-top-ta
 import { withLayoutContext } from "expo-router";
 import { Keyboard } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { Navigator: TopTabNavigator, Screen: TopTabScreen } = createMaterialTopTabNavigator();
 const MaterialTabs = withLayoutContext(TopTabNavigator);
 
 const _layout = () => {
   const [tabBarVisible, setTabBarVisible] = useState(true);
+  const insets = useSafeAreaInsets();
 
   // Disable tab bar hide/show to prevent layout glitches that cause padding animations
   // The tab bar will remain visible at all times when using forms
@@ -33,6 +35,8 @@ const _layout = () => {
         tabBarStyle: tabBarVisible ? {
           borderTopWidth: 1,
           borderTopColor: "#E5E7EB",
+          paddingBottom: insets.bottom,
+          height: 56 + insets.bottom,
         } : { display: 'none' },
         tabBarShowLabel: true,
         tabBarShowIcon: true,
@@ -138,7 +142,7 @@ const _layout = () => {
           headerShown: false,
           tabBarIcon: ({ focused }: { focused: boolean }) => (
             <Icon
-              name="help-outline"
+              name="menu-book"
               size={20}
               color={focused ? "#E11D48" : "#9CA3AF"}
             />

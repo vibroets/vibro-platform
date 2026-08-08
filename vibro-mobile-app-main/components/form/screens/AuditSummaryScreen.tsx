@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 10,
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
     color: "#fff",
   },
@@ -212,12 +212,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   resultLabel: {
-    fontSize: 13,
+    fontSize: 15,
     color: "#666",
     marginBottom: 4,
   },
   resultValue: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: "700",
     color: "#333",
   },
@@ -239,12 +239,12 @@ const styles = StyleSheet.create({
   },
   tableCell: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 15,
     color: "#333",
   },
   tableHeaderText: {
     fontWeight: "bold",
-    fontSize: 14,
+    fontSize: 16,
   },
 });
 

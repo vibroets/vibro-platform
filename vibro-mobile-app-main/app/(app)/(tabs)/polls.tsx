@@ -16,6 +16,7 @@ import Icon from "react-native-vector-icons/MaterialIcons";
 import { useFocusEffect } from "expo-router";
 import api from "../../../services";
 import { POLL_MY_POLLS, POLL_SENT, POLL_SUBMIT } from "../../../services/constants";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface PollQuestion {
   id: number;
@@ -52,6 +53,7 @@ const getDefaultFilters = (): PollFilters => ({
 });
 
 const PollsScreen = () => {
+  const insets = useSafeAreaInsets();
   const [polls, setPolls] = useState<Poll[]>([]);
   const [filteredPolls, setFilteredPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
@@ -317,7 +319,7 @@ const PollsScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       {/* Search + Filter */}
       <View style={styles.searchRow}>
         <View style={styles.searchBox}>
@@ -455,6 +457,7 @@ const PollsScreen = () => {
                 )}
               </TouchableOpacity>
             </View>
+            <View style={{ height: insets.bottom, backgroundColor: "#fff" }} />
           </View>
         </View>
       </Modal>

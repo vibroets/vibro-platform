@@ -345,6 +345,7 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
             status_val = 'passed' if score >= pass_percentage else 'failed'
 
         # Dedup: only for video-only completions (no questions) to prevent auto-submit duplicates
+        # Must include schedule_id to avoid blocking stage progression across different schedules
         if total_questions == 0:
             existing = QuizResult.objects.filter(
                 user=user,
@@ -352,6 +353,7 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
                 content_id=content_id,
                 status='passed',
                 total_questions=0,
+                schedule_id=schedule_id,
             ).order_by('-completed_at').first()
             if existing:
                 return Response(QuizResultSerializer(existing).data, status=status.HTTP_200_OK)
@@ -408,7 +410,7 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
     # --- ADMIN: ALL QUIZ RESULTS ---
     @action(detail=False, methods=['get'], url_path='all-quiz-results')
     def all_quiz_results(self, request):
-        results = QuizResult.objects.all().order_by('-completed_at')
+        results = QuizResult.objects.filter(organization=request.user.organization).order_by('-completed_at')
         data = QuizResultSerializer(results, many=True).data
         for r in data:
             user = CustomUser.objects.filter(id=r['user']).first()
@@ -422,7 +424,7 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
     # --- ADMIN: USERS LIST (for filters and share) ---
     @action(detail=False, methods=['get'], url_path='users-list')
     def users_list(self, request):
-        users = CustomUser.objects.all().values('id', 'first_name', 'last_name', 'username', 'email', 'department')
+        users = CustomUser.objects.filter(organization=request.user.organization).values('id', 'first_name', 'last_name', 'username', 'email', 'department')
         user_list = []
         for u in users:
             dept = u.get('department')
@@ -485,6 +487,7 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
             validity_unit=validity_unit,
             status='active',
             organization_name='VIBRO Learning, Training & Development',
+            organization=request.user.organization,
         )
 
         dispatch_notification(
@@ -502,7 +505,7 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
     # --- ADMIN: ALL CERTIFICATES ---
     @action(detail=False, methods=['get'], url_path='all-certificates')
     def all_certificates(self, request):
-        certs = Certificate.objects.all().order_by('-issued_at')
+        certs = Certificate.objects.filter(organization=request.user.organization).order_by('-issued_at')
         # Only return certificates where the user actually passed
         certs = [c for c in certs if c.score >= (c.pass_percentage or 70)]
         return Response(CertificateSerializer(certs, many=True).data, status=status.HTTP_200_OK)
@@ -637,7 +640,7 @@ class LearningCourseViewSet(userContextAPIView, ModelViewSet):
         content_id = request.query_params.get('content_id')
         if not content_id:
             return Response({'error': 'content_id is required'}, status=status.HTTP_400_BAD_REQUEST)
-        results = QuizResult.objects.filter(content_id=content_id).order_by('-completed_at')
+        results = QuizResult.objects.filter(content_id=content_id, organization=request.user.organization).order_by('-completed_at')
         data = []
         for r in results:
             user = CustomUser.objects.filter(id=r.user_id).first()

@@ -91,7 +91,7 @@ const Cards: React.FC<CardProps> = ({ item, onLike, onAcknowledge, onView }) => 
     return (
         <TouchableOpacity activeOpacity={0.7} onPress={() => onView(item.id)}>
             <View style={[styles.cardContainer, item.viewed && styles.viewedCard]}>
-                {/* Compact Header */}
+                {/* Header: avatar + author + badges */}
                 <View style={styles.headerRow}>
                     <View style={styles.avatarContainer}>
                         <Image style={styles.avatarImage} source={ReactIcon} />
@@ -103,92 +103,71 @@ const Cards: React.FC<CardProps> = ({ item, onLike, onAcknowledge, onView }) => 
                             <Text style={styles.categoryText}>• {item.announcement_category}</Text>
                         </View>
                     </View>
-
                     <View style={styles.statusContainer}>
                         {item.pin_as_important && (
-                            <Icon name="push-pin" size={16} color="#F59E0B" />
+                            <Icon name="push-pin" size={14} color="#F59E0B" />
                         )}
                         {attachments.length > 0 && (
                             <View style={styles.attachmentBadge}>
-                                <Icon name="attach-file" size={12} color="#1F2937" />
+                                <Icon name="attach-file" size={10} color="#1F2937" />
                                 <Text style={styles.attachmentCount}>{attachments.length}</Text>
                             </View>
                         )}
                     </View>
                 </View>
 
-                {/* Compact Content */}
-                <View style={styles.contentContainer}>
-                    <Text style={styles.statusText} numberOfLines={2}>
-                        {item.title}
-                    </Text>
-                    <Text style={styles.descriptionText} numberOfLines={2} ellipsizeMode="tail">
-                        {item.announcement_content}
-                    </Text>
-                </View>
+                {/* Content: title + preview */}
+                <Text style={styles.statusText} numberOfLines={2}>{item.title}</Text>
+                <Text style={styles.descriptionText} numberOfLines={2} ellipsizeMode="tail">
+                    {item.announcement_content}
+                </Text>
 
-                {/* Compact Action Footer */}
+                {/* Actions: inline right-aligned, no divider */}
                 <View style={styles.actionRow}>
-                    <View style={styles.leftActions}>
-                        {/* LIKE BUTTON */}
-                        <TouchableOpacity
-                            style={styles.compactActionButton}
-                            onPress={handleLikePress}
-                        >
-                            {isLiking ? (
-                                <ActivityIndicator size="small" color="#E11D48" />
-                            ) : (
-                                <Icon
-                                    name={item.liked ? "favorite" : "favorite-border"}
-                                    size={18}
-                                    color={item.liked ? "#E11D48" : "#9CA3AF"}
-                                />
-                            )}
-                            <Text style={[styles.compactActionText, item.liked && { color: '#E11D48' }]}>
-                                {item.liked ? "Liked" : "Like"}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.rightActions}>
-                        {/* ACKNOWLEDGE BUTTON (Conditional) */}
-                        {item.request_acknowledge && (
-                            <TouchableOpacity
-                                style={[
-                                    styles.compactAckButton,
-                                    item.acknowledged ? styles.ackActive : styles.ackInactive
-                                ]}
-                                onPress={handleAcknowledgePress}
-                                disabled={item.acknowledged}
-                            >
-                                {isAcking ? (
-                                    <ActivityIndicator size="small" color={item.acknowledged ? "white" : "#059669"} />
-                                ) : (
-                                    <>
-                                        <Icon
-                                            name={item.acknowledged ? "check" : "thumb-up"}
-                                            size={14}
-                                            color={item.acknowledged ? "white" : "#059669"}
-                                        />
-                                        <Text style={[
-                                            styles.compactAckText,
-                                            item.acknowledged ? { color: 'white' } : { color: '#059669' }
-                                        ]}>
-                                            {item.acknowledged ? "Ack" : "Ack"}
-                                        </Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
+                    <TouchableOpacity style={styles.likeBtn} onPress={handleLikePress}>
+                        {isLiking ? (
+                            <ActivityIndicator size="small" color="#E11D48" />
+                        ) : (
+                            <Icon
+                                name={item.liked ? "favorite" : "favorite-border"}
+                                size={16}
+                                color={item.liked ? "#E11D48" : "#9CA3AF"}
+                            />
                         )}
+                        <Text style={[styles.likeText, item.liked && { color: '#E11D48' }]}>
+                            {item.liked ? "Liked" : "Like"}
+                        </Text>
+                    </TouchableOpacity>
 
-                        {/* VIEW BUTTON */}
+                    {item.request_acknowledge && (
                         <TouchableOpacity
-                            style={styles.viewButton}
-                            onPress={() => onView(item.id)}
+                            style={[styles.ackBtn, item.acknowledged ? styles.ackActive : styles.ackInactive]}
+                            onPress={handleAcknowledgePress}
+                            disabled={item.acknowledged}
                         >
-                            <Icon name="arrow-forward" size={18} color="#2563EB" />
+                            {isAcking ? (
+                                <ActivityIndicator size="small" color={item.acknowledged ? "white" : "#059669"} />
+                            ) : (
+                                <>
+                                    <Icon
+                                        name={item.acknowledged ? "check" : "thumb-up"}
+                                        size={12}
+                                        color={item.acknowledged ? "white" : "#059669"}
+                                    />
+                                    <Text style={[
+                                        styles.ackText,
+                                        item.acknowledged ? { color: 'white' } : { color: '#059669' }
+                                    ]}>
+                                        Ack
+                                    </Text>
+                                </>
+                            )}
                         </TouchableOpacity>
-                    </View>
+                    )}
+
+                    <TouchableOpacity style={styles.viewBtn} onPress={() => onView(item.id)}>
+                        <Icon name="arrow-forward" size={16} color="#2563EB" />
+                    </TouchableOpacity>
                 </View>
             </View>
 
@@ -212,13 +191,13 @@ const Cards: React.FC<CardProps> = ({ item, onLike, onAcknowledge, onView }) => 
 const styles = StyleSheet.create({
     cardContainer: {
         backgroundColor: '#ffffff',
-        borderRadius: 12,
-        padding: 12,
-        marginBottom: 12,
+        borderRadius: 10,
+        padding: 10,
+        marginBottom: 8,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
         elevation: 2,
         borderWidth: 1,
         borderColor: '#f0f0f0',
@@ -227,35 +206,30 @@ const styles = StyleSheet.create({
         backgroundColor: '#f9fafb',
         opacity: 0.8,
     },
-    headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-    avatarContainer: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f3f4f6', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#e5e7eb' },
-    avatarImage: { width: 28, height: 28, borderRadius: 14 },
-    headerTextContainer: { marginLeft: 8, flex: 1 },
-    titleText: { color: '#111827', fontSize: 14, fontWeight: '700' },
-    metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-    dateText: { color: '#6B7280', fontSize: 11 },
-    categoryText: { color: '#6B7280', fontSize: 11, marginLeft: 4, fontWeight: '500' },
+    headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+    avatarContainer: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#f3f4f6', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#e5e7eb' },
+    avatarImage: { width: 24, height: 24, borderRadius: 12 },
+    headerTextContainer: { marginLeft: 6, flex: 1 },
+    titleText: { color: '#111827', fontSize: 13, fontWeight: '700' },
+    metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 1 },
+    dateText: { color: '#6B7280', fontSize: 10 },
+    categoryText: { color: '#6B7280', fontSize: 10, marginLeft: 4, fontWeight: '500' },
     statusContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     attachmentBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
     attachmentCount: { fontSize: 10, color: '#1F2937', marginLeft: 2, fontWeight: '600' },
 
-    contentContainer: { marginTop: 4 },
-    statusText: { color: '#1F2937', fontSize: 15, fontWeight: '700', lineHeight: 20, marginBottom: 4 },
-    descriptionText: { color: '#6B7280', fontSize: 13, lineHeight: 18 },
+    contentContainer: { marginTop: 2 },
+    statusText: { color: '#1F2937', fontSize: 14, fontWeight: '700', lineHeight: 18, marginBottom: 2, marginTop: 4 },
+    descriptionText: { color: '#6B7280', fontSize: 12, lineHeight: 16 },
 
-    actionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
-    leftActions: { flexDirection: 'row', alignItems: 'center' },
-    rightActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    
-    compactActionButton: { flexDirection: 'row', alignItems: 'center', padding: 4 },
-    compactActionText: { color: '#6B7280', fontSize: 12, marginLeft: 4, fontWeight: '500' },
-    
-    viewButton: { padding: 6, backgroundColor: '#EFF6FF', borderRadius: 20 },
-    
-    compactAckButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16, borderWidth: 1 },
+    actionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 6 },
+    likeBtn: { flexDirection: 'row', alignItems: 'center' },
+    likeText: { color: '#6B7280', fontSize: 11, marginLeft: 3, fontWeight: '500' },
+    ackBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, borderWidth: 1 },
     ackInactive: { backgroundColor: '#ECFDF5', borderColor: '#059669' },
     ackActive: { backgroundColor: '#059669', borderColor: '#059669' },
-    compactAckText: { fontSize: 11, fontWeight: '600', marginLeft: 4 },
+    ackText: { fontSize: 10, fontWeight: '600', marginLeft: 3 },
+    viewBtn: { padding: 4, backgroundColor: '#EFF6FF', borderRadius: 14 },
 
     // Legacy styles kept for compatibility
     attachmentContainer: {

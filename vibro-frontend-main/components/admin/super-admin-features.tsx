@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast"
 import ConfirmModalBox from "../ui/confirm-modalbox"
 import axiosInstance from "@/utils/axiosInstance"
 import ArchivedItemsTab from "./archiving/archiving"
+import EnquiryManagement from "./enquiry-management"
 import { useSelector } from "react-redux";
 import { selectUser } from "@/redux/slices/authSlice"
 import hotToaster from "react-hot-toast";
@@ -322,11 +323,12 @@ hotToaster.success("User Deleted Permanently!", {duration:2000});
 
   return (
     <><Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+      <TabsList className="grid w-full grid-cols-2 md:grid-cols-5">
         <TabsTrigger value="recovery" className="text-black hover:text-white hover:bg-blue-600 data-[state=active]:bg-blue-200">Recovery</TabsTrigger>
         <TabsTrigger value="support" className="text-black hover:text-white hover:bg-blue-600 data-[state=active]:bg-blue-200">Support Chat</TabsTrigger>
         <TabsTrigger value="integrations" className="text-black hover:text-white hover:bg-blue-600 data-[state=active]:bg-blue-200">API/BI Integrations</TabsTrigger>
         <TabsTrigger value="archiving" className="text-black hover:text-white hover:bg-blue-600 data-[state=active]:bg-blue-200">Archiving</TabsTrigger>
+        <TabsTrigger value="enquiries" className="text-black hover:text-white hover:bg-blue-600 data-[state=active]:bg-blue-200">Enquiries</TabsTrigger>
       </TabsList>
 
       <TabsContent value="recovery" className="mt-6">
@@ -744,6 +746,9 @@ hotToaster.success("User Deleted Permanently!", {duration:2000});
       </TabsContent>
       <TabsContent value="archiving" className="mt-6">
         <ArchivedItemsTab />
+      </TabsContent>
+      <TabsContent value="enquiries" className="mt-6">
+        <EnquiryManagement />
       </TabsContent>
     </Tabs>
 

@@ -509,7 +509,7 @@ const AuditField: React.FC<AuditFieldProps> = ({
 };
 
 const styles = StyleSheet.create({
-  optionsContainer: { marginTop: 8 },
+  optionsContainer: { marginTop: 6 },
   optionsContainerError: {
     borderWidth: 1,
     borderColor: "red",
@@ -518,17 +518,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF0F0",
   },
   optionButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: "#ddd",
     borderRadius: 8,
-    marginBottom: 8,
+    marginBottom: 6,
     backgroundColor: "#fff",
   },
   optionSelected: { borderColor: "#007AFF", backgroundColor: "#F0F7FF" },
   optionContent: { flexDirection: "row", alignItems: "center" },
-  optionText: { fontSize: 16, marginLeft: 12, flex: 1 },
+  optionText: { fontSize: 14, marginLeft: 10, flex: 1 },
   otherOptionContainer: { marginTop: 8 },
   otherOptionButton: {
     marginBottom: 0,
@@ -541,12 +541,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     borderBottomLeftRadius: 8,
     borderBottomRightRadius: 8,
-    padding: 16,
-    fontSize: 16,
+    padding: 12,
+    fontSize: 14,
     backgroundColor: "#fff",
   },
   inputError: { borderColor: "red", backgroundColor: "#FFF0F0" },
-  errorText: { color: "red", marginTop: 8, fontSize: 14 },
+  errorText: { color: "red", marginTop: 6, fontSize: 13 },
 });
 
 export default AuditField;

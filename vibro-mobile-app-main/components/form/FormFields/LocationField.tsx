@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   buttonText: {
     marginLeft: 10,
     color: "#007AFF",
-    fontSize: 16,
+    fontSize: 18,
   },
   coordinatesContainer: {
     backgroundColor: "#f9f9f9",
@@ -155,19 +155,19 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
   },
   coordinatesText: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#333",
     marginBottom: 4,
   },
   accuracyText: {
-    fontSize: 12,
+    fontSize: 14,
     color: "#666",
     fontStyle: "italic",
   },
   errorText: {
     color: "red",
     marginTop: 5,
-    fontSize: 14,
+    fontSize: 16,
   },
   mapPreview: {
     height: 150,

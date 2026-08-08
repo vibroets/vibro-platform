@@ -147,7 +147,7 @@ function ManualAutocompleteInput({
   );
 }
 
-export default function UserManagement() {
+export default function UserManagement({ canEdit = false }: { canEdit?: boolean }) {
   const router = useRouter();
   const { toast } = useToast();
   const { user: currentUser } = useUser();
@@ -184,7 +184,6 @@ export default function UserManagement() {
   const [organizationFilter, setOrganizationFilter] = useState("");
 
   const isSuperAdmin = userinfo?.role === "Super Admin";
-  const canEdit = true;
 
   useEffect(() => {
     fetchUsers();
@@ -600,7 +599,7 @@ export default function UserManagement() {
             </DropdownMenuContent>
           </DropdownMenu>
           <div className="flex flex-col sm:flex-row gap-2 min-w-[150px]">
-            {currentuserrole && (
+            {currentuserrole && canEdit && (
               <Button
                 className="min-w-[150px]"
                 onClick={() => router.push("/admin/users/new")}
@@ -609,7 +608,7 @@ export default function UserManagement() {
                 Add User
               </Button>
             )}
-            {currentuserrole && (
+            {currentuserrole && canEdit && (
               <Button
                 variant="outline"
                 size="sm"
@@ -636,6 +635,7 @@ export default function UserManagement() {
               Sync
             </Button> */}
 
+            {canEdit && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button className="min-w-[126px] h-9" variant="outline">
@@ -651,6 +651,7 @@ export default function UserManagement() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            )}
           </div>
         </div>
       </div>
@@ -876,32 +877,38 @@ export default function UserManagement() {
 
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        className="flex items-center gap-2 text-xs px-2 py-1 h-9 pr-3"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPendingDeleteId(user.id);
-                          setCheckValue("Archive");
-                          setShowModal(true);
-                        }}
-                      >
-                        <Archive className="h-4 w-4" />
-                        Archive
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        className="flex items-center gap-2 text-xs px-2 py-1 h-9 pr-3"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPendingDeleteId(user.id);
-                          setCheckValue("Delete");
-                          setShowModal(true);
-                        }}
-                      >
-                        <Trash className="h-4 w-4" />
-                        Delete
-                      </Button>
+                      {canEdit ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            className="flex items-center gap-2 text-xs px-2 py-1 h-9 pr-3"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPendingDeleteId(user.id);
+                              setCheckValue("Archive");
+                              setShowModal(true);
+                            }}
+                          >
+                            <Archive className="h-4 w-4" />
+                            Archive
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            className="flex items-center gap-2 text-xs px-2 py-1 h-9 pr-3"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPendingDeleteId(user.id);
+                              setCheckValue("Delete");
+                              setShowModal(true);
+                            }}
+                          >
+                            <Trash className="h-4 w-4" />
+                            Delete
+                          </Button>
+                        </>
+                      ) : (
+                        <span className="text-xs text-gray-400 italic">View only</span>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

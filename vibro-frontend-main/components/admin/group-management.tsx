@@ -61,7 +61,7 @@ interface Group {
   organization_name: string;
 }
 
-export default function GroupManagement() {
+export default function GroupManagement({ canEdit = false }: { canEdit?: boolean }) {
   const { user } = useUser();
   const { toast } = useToast();
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
@@ -91,8 +91,6 @@ export default function GroupManagement() {
   // const reduxUser = useSelector((state) => state.auth.user);
   const isSuperAdmin = reduxUser?.role_details?.name === "super_admin";
   const isAdmin = reduxUser?.role_details?.name === "admin";
-  // Only Super Admin and Admin can edit/delete content
-  const canEdit = user.role === "Super Admin" || user.role === "Admin";
 
   // const toggleRow = (id: string) => {
   //   setSelectedRows((prev) => (prev.includes(id) ? prev.filter((rowId) => rowId !== id) : [...prev, id]))
@@ -298,6 +296,7 @@ export default function GroupManagement() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2">
+          {canEdit && (
           <div className="flex flex-col sm:flex-row gap-2">
             <Button onClick={() => router.push("/admin/groups/new-normal")}>
               <Plus className="mr-2 h-4 w-4" />
@@ -311,6 +310,8 @@ export default function GroupManagement() {
               Create Rule-Based Group
             </Button>
           </div>
+          )}
+          {canEdit && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">Bulk Actions</Button>
@@ -340,6 +341,7 @@ export default function GroupManagement() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
       </div>
 

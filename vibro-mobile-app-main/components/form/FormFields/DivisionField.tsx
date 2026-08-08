@@ -301,9 +301,9 @@ const DivisionField: React.FC<DivisionFieldProps> = ({
 
 const styles = StyleSheet.create({
   container: { marginBottom: 20 },
-  label: { fontSize: 12, fontWeight: "bold", marginBottom: 8 },
+  label: { fontSize: 14, fontWeight: "bold", marginBottom: 8 },
   required: { color: "red" },
-  description: { fontSize: 14, color: "#666", marginBottom: 12 },
+  description: { fontSize: 16, color: "#666", marginBottom: 12 },
   dropdownButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F5F5F5", // Light gray background for view-only mode
     borderColor: "#E0E0E0",
   },
-  dropdownButtonText: { fontSize: 12, color: "#333", flex: 1 },
+  dropdownButtonText: { fontSize: 14, color: "#333", flex: 1 },
   disabledButtonText: {
     color: "#666", // Gray text for view-only mode
   },
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-  modalTitle: { fontSize: 14, fontWeight: "bold", flex: 1 },
+  modalTitle: { fontSize: 16, fontWeight: "bold", flex: 1 },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
   },
   searchIcon: { marginRight: 8 },
   clearIcon: { marginLeft: 8 },
-  searchInput: { flex: 1, fontSize: 14, paddingVertical: 12, color: "#333" },
+  searchInput: { flex: 1, fontSize: 16, paddingVertical: 12, color: "#333" },
   optionItem: {
     padding: 16,
     flexDirection: "row",
@@ -378,11 +378,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   selectedOptionItem: { backgroundColor: "#F0F7FF" },
-  optionText: { fontSize: 12, flex: 1 },
+  optionText: { fontSize: 14, flex: 1 },
   separator: { height: 1, backgroundColor: "#eee", marginHorizontal: 16 },
   emptyContainer: { padding: 20, alignItems: "center", justifyContent: "center" },
-  emptyText: { fontSize: 14, color: "#999" },
-  errorText: { color: "red", marginTop: 5, fontSize: 14 },
+  emptyText: { fontSize: 16, color: "#999" },
+  errorText: { color: "red", marginTop: 5, fontSize: 16 },
   loadingContainer: {
     flex: 1,
     height: 50,

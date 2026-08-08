@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 
 import { Header } from "@/components/Header";
@@ -138,7 +139,7 @@ export default function OtpVerificationScreen() {
   }, [isAuthenticated]);
 
   return (
-    <>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#2196f3" }} edges={['bottom']}>
       <Header isTransparent={true} />
       <KeyboardAvoidingView
         style={styles.container}
@@ -212,7 +213,7 @@ export default function OtpVerificationScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </>
+    </SafeAreaView>
   );
 }
 

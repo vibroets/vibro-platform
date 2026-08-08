@@ -350,13 +350,13 @@ const LinearScaleField: React.FC<LinearScaleFieldProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 32,
+    marginBottom: 20,
     paddingHorizontal: SLIDER_MARGIN,
   },
   label: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
-    marginBottom: 8,
+    marginBottom: 6,
     color: "#333",
   },
   required: {
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 14,
     color: "#666",
-    marginBottom: 16,
+    marginBottom: 10,
   },
   sliderContainer: {
     marginTop: 8,
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
   labelsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   endLabel: {
     fontSize: 14,
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   sliderTrack: {
-    height: 40,
+    height: 36,
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "#E0E0E0",
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
   valueContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 12,
+    marginTop: 8,
   },
   valueText: {
     fontSize: 14,
@@ -450,8 +450,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "red",
-    marginTop: 8,
-    fontSize: 14,
+    marginTop: 6,
+    fontSize: 13,
   },
 });
 

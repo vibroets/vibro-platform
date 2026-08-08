@@ -43,7 +43,7 @@ const TitleDescription: React.FC<TitleDescriptionProps> = ({
 const styles = StyleSheet.create({
   container: { marginBottom: 16 },
   label: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
     color: "#333",
   },
@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
   },
   required: { color: "red" },
   description: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#666",
     marginTop: 8,
   },

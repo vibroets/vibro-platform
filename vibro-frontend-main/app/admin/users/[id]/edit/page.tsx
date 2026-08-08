@@ -16,6 +16,7 @@ import { ArrowLeft } from "lucide-react"
 import { Header } from "@/components/header"
 import { Sidebar } from "@/components/sidebar"
 import GlobalLoader from "@/components/ui/globalloader"
+import { useModuleAccess } from "@/hooks/useModuleAccess"
 
 export default function EditUserPage() {
   const params = useParams()
@@ -27,6 +28,9 @@ export default function EditUserPage() {
   const mode = searchParams.get("mode");
 
   const isView = mode === "View" ? "View" : "Edit";
+
+  const { isFullAccess, isSuperAdmin } = useModuleAccess("administration");
+  const canEdit = isFullAccess || isSuperAdmin;
 
 
 
@@ -53,7 +57,7 @@ export default function EditUserPage() {
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Back
                   </Button>
-                  {mode === "View" && (
+                  {mode === "View" && canEdit && (
                     <Button
                       variant="default"
                       size="sm"

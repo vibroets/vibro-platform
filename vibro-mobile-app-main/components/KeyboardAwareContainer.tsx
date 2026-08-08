@@ -19,6 +19,7 @@ import {
   KeyboardAvoidingView,
   NativeSyntheticEvent,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TargetedEvent,
@@ -124,6 +125,8 @@ interface Props {
   extraScrollHeight?: number;
   /** form type for positioning adjustments */
   formType?: 'standard' | 'audit' | 'todo';
+  /** Optional refresh control for pull-to-refresh */
+  refreshControl?: React.ReactElement<React.ComponentProps<typeof RefreshControl>>;
 }
 
 const KeyboardAwareContainer = forwardRef<KeyboardAwareContainerRef, Props>(
@@ -136,6 +139,7 @@ const KeyboardAwareContainer = forwardRef<KeyboardAwareContainerRef, Props>(
       keyboardVerticalOffset = Platform.select({ ios: 90, android: 0 }),
       extraScrollHeight = 0,
       formType = 'standard',
+      refreshControl,
     },
     ref
   ) => {
@@ -144,7 +148,7 @@ const KeyboardAwareContainer = forwardRef<KeyboardAwareContainerRef, Props>(
     const accordionRefs = useRef<{ [k: string]: React.RefObject<View | null> }>({});
     const kbHeightRef = useRef(0);
     const scrollOffsetRef = useRef(0);
-    const bottomPaddingAnim = useRef(new Animated.Value(150)).current;
+    const bottomPaddingAnim = useRef(new Animated.Value(140)).current;
     const pending = useRef<string | null>(null);
 
     const _registerRef = useCallback(
@@ -381,7 +385,7 @@ const KeyboardAwareContainer = forwardRef<KeyboardAwareContainerRef, Props>(
         kbHeightRef.current = 0;
         try {
           Animated.timing(bottomPaddingAnim, {
-            toValue: 150,
+            toValue: 140,
             duration: 200,
             useNativeDriver: false,
           }).start();
@@ -412,10 +416,11 @@ const KeyboardAwareContainer = forwardRef<KeyboardAwareContainerRef, Props>(
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={true}
-          bounces={Platform.OS === 'ios'}
+          bounces={refreshControl ? true : Platform.OS === 'ios'}
           overScrollMode="always"
           scrollEventThrottle={16}
           automaticallyAdjustKeyboardInsets={false} // Prevent automatic keyboard adjustments
+          refreshControl={refreshControl}
           onScroll={(event) => {
             scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
           }}

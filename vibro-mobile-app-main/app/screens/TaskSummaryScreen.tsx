@@ -3,6 +3,7 @@ import * as Api from '@/services';
 import { USERS_LIST } from '@/services/constants';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -483,19 +484,19 @@ const TaskSummaryScreen: React.FC<TaskSummaryScreenProps> = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer} edges={['top']}>
         <ActivityIndicator size="large" color="#007AFF" />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!taskDetails) {
     return (
-      <View style={styles.errorContainer}>
+      <SafeAreaView style={styles.errorContainer} edges={['top']}>
         <Text style={styles.errorText}>Task not found</Text>
         <Text style={styles.debugText}>Task ID: {taskId}</Text>
         <Text style={styles.debugText}>Loading: {loading ? 'true' : 'false'}</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -551,6 +552,7 @@ const TaskSummaryScreen: React.FC<TaskSummaryScreenProps> = () => {
   const targetActivityIndex = completedActivityIndex >= 0 ? completedActivityIndex : 0;
 
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#f8f9fa' }} edges={['top']}>
     <ScrollView style={styles.container}>
       {/* Back Button */}
       <View style={styles.backButtonContainer}>
@@ -703,7 +705,7 @@ const TaskSummaryScreen: React.FC<TaskSummaryScreenProps> = () => {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowFollowupFormModal(false)}
       >
-        <View style={styles.modalContainer}>
+        <SafeAreaView style={styles.modalContainer} edges={['top', 'bottom']}>
           {/* Modal Header */}
           <View style={styles.modalHeader}>
             <TouchableOpacity 
@@ -730,7 +732,7 @@ const TaskSummaryScreen: React.FC<TaskSummaryScreenProps> = () => {
               />
             )}
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
 
       {/* Modal: Task Close Questions */}
@@ -740,7 +742,7 @@ const TaskSummaryScreen: React.FC<TaskSummaryScreenProps> = () => {
         presentationStyle="pageSheet"
         onRequestClose={handleTaskCloseQuestionsComplete}
       >
-        <View style={styles.modalContainer}>
+        <SafeAreaView style={styles.modalContainer} edges={['top', 'bottom']}>
           {/* Modal Header - No back/close buttons as task close questions must be completed */}
           <View style={styles.modalHeader}>
             <View style={{ width: 40 }} />
@@ -755,7 +757,7 @@ const TaskSummaryScreen: React.FC<TaskSummaryScreenProps> = () => {
               onClose={handleTaskCloseQuestionsComplete}
             />
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
 
       {/* Related Tasks Selector */}
@@ -898,6 +900,7 @@ const TaskSummaryScreen: React.FC<TaskSummaryScreenProps> = () => {
         </View>
       </Modal>
     </ScrollView>
+    </SafeAreaView>
   );
 };
 

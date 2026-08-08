@@ -1,0 +1,1 @@
+*/5 * * * * root /opt/vibro/deploy/monitor_cpu.sh >> /var/log/cpu-monitor.log 2>&1

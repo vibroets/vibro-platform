@@ -11,11 +11,13 @@ import {
   Text,
   ScrollView,
   Modal,
+  BackHandler,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSegments, router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSelector, useDispatch } from "react-redux";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RootState } from "@/Redux/reducer/rootReducer";
 import { AnnouncementItem, patchAnnouncement } from "@/Redux/reducer/announcements/announcementsSlice";
 import api from "@/services";
@@ -60,6 +62,7 @@ export default function AppLayout() {
   const segments = useSegments();
   const lastSegment = segments[segments.length - 1];
   const hideHeader = ["multi-stage-form", "folder-list"].includes(lastSegment);
+  const insets = useSafeAreaInsets();
 
   const [isToggleEnabled, setIsToggleEnabled] = React.useState(false);
   const [formOptions, setFormOptions] = React.useState<FormOptions>({ enabled: false });
@@ -236,8 +239,20 @@ export default function AppLayout() {
         // Ensure translucent false so we don't get overlapping safe area space
         // Note: we still render a non-translucent StatusBar below.
       }
-      return () => {};
-    }, [])
+
+      // Prevent hardware back button from navigating to login screen
+      const backHandler = BackHandler.addEventListener("hardwareBackPress", () => {
+        const segs = segments;
+        const isRoot = segs.length <= 2 || (segs.length === 3 && segs[2] === "home");
+        if (isRoot) {
+          // At root - don't navigate back to login, just stay
+          return true;
+        }
+        return false;
+      });
+
+      return () => backHandler.remove();
+    }, [segments])
   );
 
   return (
@@ -258,12 +273,12 @@ export default function AppLayout() {
       }}
     >
       <AuthWrapper>
-        {/* Render a single StatusBar instance and keep translucent={false} */}
+        {/* Render a single StatusBar instance — translucent so headerStatusBarHeight handles padding */}
         {Platform.OS !== "web" && (
           <StatusBar
             backgroundColor="#2196f3"
             barStyle="light-content"
-            translucent={false}
+            translucent={true}
           />
         )}
 
@@ -286,17 +301,13 @@ export default function AppLayout() {
             drawerInactiveTintColor: "#64748b",
             drawerStyle: { backgroundColor: "#ffffff" },
 
-            // IMPORTANT: keep headerStatusBarHeight = 0 to avoid double-safe-area on Android
-            // and keep header height strictly fixed.
-            headerStatusBarHeight: 0 as any, // TS: react-navigation accepts number | undefined
+            // Use actual safe area top inset for proper status bar spacing
+            headerStatusBarHeight: insets.top as any,
 
             headerStyle: {
               backgroundColor: "#2196f3",
-              height: 56, // fixed header height (consistent)
               elevation: 0,
               shadowOpacity: 0,
-              // ensure no extra padding
-              paddingTop: 0,
             },
 
             headerTintColor: "#ffffff",

@@ -54,6 +54,8 @@ const MODULES = [
   { module: "learning_training", access: "no_access" },
   { module: "planner", access: "no_access" },
   { module: "attendance", access: "no_access" },
+  { module: "guides", access: "no_access" },
+  { module: "administration", access: "full_access" },
 ];
 
 const formSchema = z.object({
@@ -347,8 +349,15 @@ export function OrganizationForm({
         }));
         
         if (org.module_permissions && Array.isArray(org.module_permissions) && org.module_permissions.length > 0) {
-          // Use existing permissions if available
-          moduleAccessList = org.module_permissions;
+          // Use existing permissions, but merge in any new modules not yet saved
+          const existingModules = new Set(org.module_permissions.map((p: any) => p.module));
+          moduleAccessList = [
+            ...org.module_permissions,
+            ...MODULES.filter((m) => !existingModules.has(m.module)).map((m) => ({
+              module: m.module,
+              access: "no_access" as const,
+            })),
+          ];
         }
         
         form.reset({

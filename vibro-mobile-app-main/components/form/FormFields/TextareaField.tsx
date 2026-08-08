@@ -189,7 +189,7 @@ const TextareaField: React.FC<TextareaFieldProps> = ({
 };
 
 const styles = StyleSheet.create({
-  fieldContainer: { marginTop: 8 },
+  fieldContainer: { marginTop: 6 },
   fieldErrorContainer: {
     borderWidth: 1,
     borderColor: textColors.error,
@@ -245,8 +245,8 @@ const styles = StyleSheet.create({
   },
   floatingLabel: {
     position: 'absolute',
-    left: 14,
-    top: -8,
+    left: 12,
+    top: -7,
     paddingHorizontal: 4,
     fontSize: 12,
     color: '#666',
@@ -260,9 +260,9 @@ const styles = StyleSheet.create({
   textarea: {
     ...typography.labelLarge,
     borderWidth: 0,
-    paddingHorizontal: 14,
-    paddingVertical: 16,
-    paddingTop: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    paddingTop: 14,
     backgroundColor: "transparent",
     textAlignVertical: "top",
     color: textColors.primary,
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 8,
+    marginTop: 6,
   },
   errorText: {
     ...typography.bodySmall,

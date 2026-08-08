@@ -12,14 +12,13 @@ import {
   Modal,
   ScrollView,
   Image,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   useWindowDimensions,
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { DateTimePickerAndroid, DateTimePickerEvent, default as DateTimePicker } from "@react-native-community/datetimepicker";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import { router, useFocusEffect } from "expo-router";
 import { differenceInCalendarDays, parseISO } from "date-fns";
@@ -186,6 +185,8 @@ const PlannerScreen = () => {
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
   const [rejectGroupIds, setRejectGroupIds] = useState<number[]>([]);
+  const [collabRefresh, setCollabRefresh] = useState(false);
+  const [bulkAssignUserId, setBulkAssignUserId] = useState<number | null>(null);
 
   const getDaysUntilDue = (endDate: string): number => {
     const end = parseISO(endDate);
@@ -664,6 +665,29 @@ const PlannerScreen = () => {
     }
   };
 
+  const collabRefreshData = async () => {
+    if (!collabPlanner) return;
+    setCollabRefresh(true);
+    try {
+      const res = await api.get(`/planner/${collabPlanner.id}/collaborative/`);
+      if (res.data?.is_team_member) {
+        setCollabGroupViewData(res.data);
+      } else {
+        setCollabData(res.data);
+        const existingDelegations: Record<number, number[]> = {};
+        (res.data?.group_delegations || []).forEach((d: any) => {
+          existingDelegations[d.audit_group] = d.assigned_user_ids || [];
+        });
+        setCollabDelegations(existingDelegations);
+        fetchOptionStats(collabPlanner.id);
+      }
+    } catch {
+      // ignore refresh errors
+    } finally {
+      setCollabRefresh(false);
+    }
+  };
+
   const fetchGroupViewOptionStats = async (plannerId: number) => {
     setGroupViewOptionStatsLoading(true);
     try {
@@ -749,6 +773,13 @@ const PlannerScreen = () => {
       const res = await api.post(`/planner/${collabPlanner.id}/collaborative/review/`, body);
       setCollabData(res.data?.collaborative_submission);
       setSelectedGroupIds(new Set());
+      setBulkAssignUserId(null);
+      const updated = res.data?.updated_groups || [];
+      const successCount = updated.filter((g: any) => g.status).length;
+      const errorCount = updated.filter((g: any) => g.error).length;
+      if (errorCount > 0) {
+        Alert.alert("Partial Success", `${successCount} group(s) ${action}d, ${errorCount} skipped (wrong status).`);
+      }
     } catch (error: any) {
       Alert.alert("Error", error?.message || "Failed to review groups");
     } finally {
@@ -768,12 +799,50 @@ const PlannerScreen = () => {
     setRejectModalVisible(true);
   };
 
+  const bulkAssign = async () => {
+    if (!collabPlanner || !bulkAssignUserId || selectedGroupIds.size === 0) return;
+    const sortedDelegations = [...(collabData?.group_delegations || [])].sort((a: any, b: any) => (a.group_order || 0) - (b.group_order || 0));
+    const selectedGroups = sortedDelegations.filter((g: any) => selectedGroupIds.has(g.id));
+    const assignableStatuses = ["unassigned", "assigned", "rejected"];
+    const assignable = selectedGroups.filter((g: any) => assignableStatuses.includes(g.display_status || g.status));
+    const skipped = selectedGroups.filter((g: any) => !assignableStatuses.includes(g.display_status || g.status));
+
+    if (assignable.length === 0) {
+      Alert.alert("No assignable groups", "Selected groups are all in progress, submitted, or reviewed and cannot be reassigned.");
+      return;
+    }
+
+    try {
+      setCollabSubmitting(true);
+      const delegations = assignable.map((g: any) => ({
+        audit_group_id: g.audit_group,
+        user_ids: [bulkAssignUserId],
+      }));
+      const res = await api.post(`/planner/${collabPlanner.id}/collaborative/delegate/`, { delegations });
+      setCollabData(res.data?.collaborative_submission);
+      const existingDelegations: Record<number, number[]> = {};
+      (res.data?.collaborative_submission?.group_delegations || []).forEach((d: any) => {
+        existingDelegations[d.audit_group] = d.assigned_user_ids || [];
+      });
+      setCollabDelegations(existingDelegations);
+      setSelectedGroupIds(new Set());
+      setBulkAssignUserId(null);
+      const msg = `Assigned ${assignable.length} group(s) to user.` + (skipped.length > 0 ? ` ${skipped.length} group(s) skipped (in progress/submitted/reviewed).` : "");
+      Alert.alert("Bulk Assign Complete", msg);
+    } catch (error: any) {
+      Alert.alert("Error", error?.data?.error || error?.message || "Failed to bulk assign");
+    } finally {
+      setCollabSubmitting(false);
+    }
+  };
+
   const confirmReject = () => {
     if (rejectGroupIds.length === 0) return;
     reviewGroup("reject", rejectGroupIds, rejectComment.trim() || "Needs revision");
     setRejectModalVisible(false);
     setRejectComment("");
     setRejectGroupIds([]);
+    setBulkAssignUserId(null);
   };
 
   const toggleGroupSelection = (groupId: number) => {
@@ -800,7 +869,7 @@ const PlannerScreen = () => {
               const completeRes = await api.post(`/planner/${collabPlanner.id}/collaborative/complete/`);
               const collabData = completeRes?.data?.collaborative_submission;
               const formSubmissionId = collabData?.form_submission;
-              const formId = collabPlanner?.form?.id;
+              const formId = collabData?.form_id;
 
               // Trigger followup tasks for this collaborative audit
               if (formSubmissionId && formId) {
@@ -1971,7 +2040,7 @@ const PlannerScreen = () => {
         animationType="slide"
         onRequestClose={() => { setCollabModalVisible(false); setSelectedGroupIds(new Set()); setShowOptionStats(false); setOptionStats(null); }}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={['top', 'bottom']}>
           {/* Header */}
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
             <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>Collaborative Audit</Text>
@@ -2030,11 +2099,48 @@ const PlannerScreen = () => {
                 })()}
               </View>
             )}
+            {!collabLoading && (collabData?.group_delegations || []).length > 0 && (
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8, paddingHorizontal: 2 }}>
+                <TouchableOpacity
+                  style={{ flexDirection: "row", alignItems: "center" }}
+                  onPress={() => {
+                    const allIds = new Set<number>((collabData?.group_delegations || []).map((g: any) => g.id as number));
+                    if (selectedGroupIds.size === allIds.size) {
+                      setSelectedGroupIds(new Set());
+                    } else {
+                      setSelectedGroupIds(allIds);
+                    }
+                  }}
+                >
+                  <View style={{ width: 18, height: 18, borderRadius: 4, borderWidth: 2, borderColor: selectedGroupIds.size === (collabData?.group_delegations || []).length ? "#2196f3" : "#D1D5DB", backgroundColor: selectedGroupIds.size === (collabData?.group_delegations || []).length ? "#2196f3" : "transparent", marginRight: 6, justifyContent: "center", alignItems: "center" }}>
+                    {selectedGroupIds.size === (collabData?.group_delegations || []).length && <Icon name="check" size={12} color="#fff" />}
+                  </View>
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: "#374151" }}>
+                    {selectedGroupIds.size === (collabData?.group_delegations || []).length ? "Deselect All" : "Select All"}
+                  </Text>
+                </TouchableOpacity>
+                {selectedGroupIds.size > 0 && (
+                  <Text style={{ fontSize: 11, color: "#6B7280" }}>{selectedGroupIds.size} selected</Text>
+                )}
+              </View>
+            )}
             {collabLoading ? (
               <ActivityIndicator size="large" color="#2196f3" style={{ marginVertical: 20 }} />
             ) : (
-              <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
-                {(collabData?.group_delegations || []).map((group: any) => {
+              <ScrollView
+                style={{ flex: 1 }}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 16 }}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={collabRefresh}
+                    onRefresh={collabRefreshData}
+                    tintColor="#2196f3"
+                    colors={["#2196f3"]}
+                  />
+                }
+              >
+                {[...(collabData?.group_delegations || [])].sort((a: any, b: any) => (a.group_order || 0) - (b.group_order || 0)).map((group: any) => {
                   const groupId = group.audit_group;
                   const selectedUserIds = collabDelegations[groupId] || [];
                   const isSelected = selectedGroupIds.has(group.id);
@@ -2044,7 +2150,7 @@ const PlannerScreen = () => {
                   const progressPct = total > 0 ? Math.round((answered / total) * 100) : 0;
                   const statusColors: Record<string, string> = { unassigned: "#9CA3AF", assigned: "#2196f3", in_progress: "#8B5CF6", submitted: "#f59e0b", reviewed: "#4CAF50", rejected: "#ef4444" };
                   const statusColor = statusColors[displayStatus] || "#9CA3AF";
-                  const canSelect = displayStatus === "submitted";
+                  const canSelect = true;
                   return (
                     <View key={group.id} style={{ marginBottom: 8, borderWidth: isSelected ? 2 : 1, borderColor: isSelected ? "#2196f3" : "#E5E7EB", borderRadius: 8, padding: 10, backgroundColor: isSelected ? "#EFF6FF" : "#fff" }}>
                       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -2190,19 +2296,46 @@ const PlannerScreen = () => {
           {/* Bottom Bar */}
           <View style={{ paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#E5E7EB" }}>
             {collabData && (
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <Text style={{ fontSize: 11, color: "#6B7280" }}>Status: <Text style={{ fontWeight: "600", color: "#111827" }}>{collabData.status?.replace(/_/g, " ")}</Text></Text>
+              <View style={{ marginBottom: 8 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <Text style={{ fontSize: 11, color: "#6B7280" }}>Status: <Text style={{ fontWeight: "600", color: "#111827" }}>{collabData.status?.replace(/_/g, " ")}</Text></Text>
+                  {selectedGroupIds.size > 0 && (
+                    <Text style={{ fontSize: 11, color: "#2196f3", fontWeight: "600" }}>{selectedGroupIds.size} selected</Text>
+                  )}
+                </View>
                 {selectedGroupIds.size > 0 && (
-                  <View style={{ flexDirection: "row", gap: 6 }}>
-                    <TouchableOpacity style={{ backgroundColor: "#4CAF50", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 }} onPress={bulkApprove} disabled={collabSubmitting}>
-                      <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600" }}>Approve</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={{ backgroundColor: "#ef4444", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 }} onPress={bulkReject} disabled={collabSubmitting}>
-                      <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600" }}>Reject</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={{ backgroundColor: "#E5E7EB", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 }} onPress={() => setSelectedGroupIds(new Set())}>
-                      <Text style={{ color: "#374151", fontSize: 11, fontWeight: "600" }}>Clear</Text>
-                    </TouchableOpacity>
+                  <View>
+                    {/* Bulk Assign: user picker + Assign button */}
+                    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 4 }}>
+                      <Text style={{ fontSize: 11, color: "#374151", fontWeight: "600" }}>Bulk assign to:</Text>
+                      {collabUsers.map((user) => (
+                        <TouchableOpacity
+                          key={user.id}
+                          onPress={() => setBulkAssignUserId(bulkAssignUserId === user.id ? null : user.id)}
+                          style={{ flexDirection: "row", alignItems: "center", backgroundColor: bulkAssignUserId === user.id ? "#2196f3" : "#F3F4F6", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3 }}
+                        >
+                          <Icon name={bulkAssignUserId === user.id ? "check-circle" : "person-outline"} size={10} color={bulkAssignUserId === user.id ? "#fff" : "#6B7280"} />
+                          <Text style={{ fontSize: 10, color: bulkAssignUserId === user.id ? "#fff" : "#374151", marginLeft: 3, fontWeight: "500" }}>{user.username}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    {/* Action buttons row */}
+                    <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                      {bulkAssignUserId && (
+                        <TouchableOpacity style={{ backgroundColor: "#2196f3", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5 }} onPress={bulkAssign} disabled={collabSubmitting}>
+                          <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600" }}>{collabSubmitting ? "Assigning..." : "Assign"}</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity style={{ backgroundColor: "#4CAF50", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5 }} onPress={bulkApprove} disabled={collabSubmitting}>
+                        <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600" }}>Approve</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={{ backgroundColor: "#ef4444", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5 }} onPress={bulkReject} disabled={collabSubmitting}>
+                        <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600" }}>Reject</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={{ backgroundColor: "#E5E7EB", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5 }} onPress={() => { setSelectedGroupIds(new Set()); setBulkAssignUserId(null); }}>
+                        <Text style={{ color: "#374151", fontSize: 11, fontWeight: "600" }}>Clear</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 )}
               </View>
@@ -2276,7 +2409,7 @@ const PlannerScreen = () => {
         animationType="slide"
         onRequestClose={() => { setCollabGroupViewVisible(false); setShowGroupViewOptionStats(false); setGroupViewOptionStats(null); }}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#F9FAFB" }} edges={['top', 'bottom']}>
           {/* Header */}
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#E5E7EB" }}>
             <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>My Assigned Groups</Text>
@@ -2336,7 +2469,7 @@ const PlannerScreen = () => {
               </View>
             )}
             <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
-              {(collabGroupViewData?.group_delegations || []).map((group: any) => {
+              {[...(collabGroupViewData?.group_delegations || [])].sort((a: any, b: any) => (a.group_order || 0) - (b.group_order || 0)).map((group: any) => {
                 const displayStatus = group.display_status || group.status;
                 const answered = group.answered_count || 0;
                 const total = group.total_questions || 0;

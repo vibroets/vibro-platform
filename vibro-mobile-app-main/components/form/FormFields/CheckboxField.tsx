@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   label: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "bold",
     marginBottom: 8,
   },
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     color: "red",
   },
   description: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#666",
     marginBottom: 12,
   },
@@ -284,15 +284,15 @@ const styles = StyleSheet.create({
   optionButton: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   checkbox: {
-    width: 22,
-    height: 22,
+    width: 20,
+    height: 20,
     borderRadius: 4,
     borderWidth: 1,
     borderColor: "#ccc",
-    marginRight: 12,
+    marginRight: 10,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     borderColor: "#007AFF",
   },
   optionText: {
-    fontSize: 11,
+    fontSize: 13,
     flex: 1,
   },
   otherOptionContainer: {
@@ -329,9 +329,9 @@ const styles = StyleSheet.create({
   },
   otherTextarea: {
     borderWidth: 0,
-    paddingHorizontal: 14,
-    paddingVertical: 16,
-    minHeight: 120,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 80,
     textAlignVertical: "top",
   },
   inputError: {
@@ -340,8 +340,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "red",
-    marginTop: 5,
-    fontSize: 14,
+    marginTop: 4,
+    fontSize: 13,
   },
   errorTextSmall: {
     color: "red",

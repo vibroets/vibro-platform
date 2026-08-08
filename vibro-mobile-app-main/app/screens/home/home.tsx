@@ -1,8 +1,8 @@
 import { AnnouncementItem, fetchAnnouncements, patchAnnouncement } from "@/Redux/reducer/announcements/announcementsSlice";
 import { RootState } from "@/Redux/reducer/rootReducer";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, TouchableWithoutFeedback, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FlatList, Keyboard, Pressable, RefreshControl, StyleSheet, Text, TextInput, TouchableWithoutFeedback, View } from "react-native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { useDispatch, useSelector } from "react-redux";
 import Cards from "./Cards";
@@ -11,6 +11,7 @@ const Home = () => {
   const data = useSelector((state: RootState) => state.announcements.announcements);
   const dispatch = useDispatch();
   const [searchQuery, setSearchQuery] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   // --- EFFECT: Fetch announcements on load ---
@@ -26,6 +27,12 @@ const Home = () => {
   }, []);
 
   // --- HANDLERS ---
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await dispatch(fetchAnnouncements() as any); } catch {}
+    setRefreshing(false);
+  }, [dispatch]);
+
   const handleLike = (id: number, currentStatus: boolean) => {
     dispatch(patchAnnouncement({ id, type: "liked", value: !currentStatus }));
   };
@@ -109,6 +116,9 @@ const Home = () => {
             contentContainerStyle={{ paddingBottom: 30 }}
             data={filteredData}
             keyExtractor={(item) => item.id.toString()}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2563EB"]} tintColor="#2563EB" />
+            }
             ListHeaderComponent={
               <Text style={styles.sectionTitle}>Announcements</Text>
             }
@@ -142,20 +152,20 @@ const styles = StyleSheet.create({
   // General Styles
   searchContainer: {
     backgroundColor: '#ffffff',
-    marginHorizontal: 16,
-    marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 10,
+    marginHorizontal: 10,
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     elevation: 1,
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  searchInput: { flex: 1, fontSize: 16, color: '#111827' },
+  searchInput: { flex: 1, fontSize: 14, color: '#111827' },
   clearButton: {
     paddingLeft: 8,
     paddingVertical: 4,
@@ -164,16 +174,16 @@ const styles = StyleSheet.create({
   clearButtonPressed: {
     backgroundColor: "#E5E7EB",
   },
-  listContainer: { flex: 1, paddingHorizontal: 16 },
+  listContainer: { flex: 1, paddingHorizontal: 10 },
   sectionTitle: {
     color: '#111827',
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '700',
-    marginTop: 24,
-    marginBottom: 16,
-    letterSpacing: -0.5,
+    marginTop: 16,
+    marginBottom: 10,
+    letterSpacing: -0.3,
   },
-  emptyListText: { textAlign: 'center', color: '#9CA3AF', marginTop: 40 },
+  emptyListText: { textAlign: 'center', color: '#9CA3AF', marginTop: 40, fontSize: 14 },
 });
 
 export default Home;

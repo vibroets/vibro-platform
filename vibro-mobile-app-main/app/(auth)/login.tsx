@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import {
   Image,
@@ -9,7 +9,9 @@ import {
   Text,
   TouchableOpacity,
   View,
+  BackHandler,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
 import { Textbox } from "@/components/FormFields";
@@ -19,12 +21,32 @@ import { router } from "expo-router";
 import { Api } from "@/services/authApi";
 
 import { Header } from "@/components/Header";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 
 const vibroLogo = require("../../vibro_logo.jpeg");
 
 export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [inlineError, setInlineError] = useState<string | null>(null);
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace("/(app)/(tabs)/home");
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (isAuthenticated) {
+        router.replace("/(app)/(tabs)/home");
+        return true;
+      }
+      return false;
+    });
+    return () => backHandler.remove();
+  }, [isAuthenticated]);
 
   const {
     control,
@@ -65,7 +87,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#2196f3" }} edges={['bottom']}>
       <Header isTransparent={true} />
       <KeyboardAvoidingView
         style={styles.container}
@@ -130,7 +152,7 @@ export default function LoginScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
       <Toast />
-    </>
+    </SafeAreaView>
   );
 }
 
