@@ -21,6 +21,7 @@ from rest_framework.permissions import IsAuthenticated
 
 
 from .models import Task, TaskAssignee, TaskTracking, TaskStatus, TaskAuditLog
+from .utils import find_related_tasks
 from .serializers import (
     TaskSerializer, TaskCreateSerializer, TaskShareSerializer,
     TaskUpdateSerializer, TaskTrackingCreateSerializer, TaskListSerializer,
@@ -572,9 +573,59 @@ class TaskViewSet(userContextAPIView, ModelViewSet):
         if new_users or new_groups or new_leaders:
             message += f' Reassigned to {len(new_users)} users, {len(new_groups)} groups, {len(new_leaders)} leaders.'
 
+        # Reopen auto-closed related tasks (tasks that were auto-closed when this task was closed)
+        reopened_related = []
+        try:
+            from .utils import get_location_from_task, get_location_from_submission, get_main_form_submission_for_task
+            # Query directly for related tasks INCLUDING completed ones (find_related_tasks excludes completed)
+            if task.followup_task_form_id and task.follow_task_sub_question:
+                location_info = get_location_from_task(task)
+                if location_info:
+                    candidate_tasks = Task.objects.filter(
+                        organization=request.user.organization,
+                        followup_task_form_id=task.followup_task_form_id,
+                        follow_task_sub_question=task.follow_task_sub_question,
+                        status='completed',
+                    ).exclude(id=task.id)
+
+                    for candidate in candidate_tasks:
+                        try:
+                            has_auto_close_log = TaskAuditLog.objects.filter(
+                                task=candidate,
+                                task_action='Auto_Closed_Related_Task'
+                            ).exists()
+                            if has_auto_close_log:
+                                # Verify same location
+                                candidate_submission = get_main_form_submission_for_task(candidate)
+                                if not candidate_submission:
+                                    continue
+                                candidate_location = get_location_from_submission(candidate_submission)
+                                if candidate_location != location_info:
+                                    continue
+                                candidate.status = 'not_started'
+                                candidate.save(update_fields=['status'])
+                                TaskAuditLog.objects.create(
+                                    task=candidate,
+                                    task_action='Followup_Reopened',
+                                    action_by=request.user,
+                                    action_to=None
+                                )
+                                reopened_related.append({
+                                    'id': candidate.id,
+                                    'task_name': candidate.task_name,
+                                })
+                        except Exception:
+                            continue
+        except Exception as e:
+            logger.warning("Reopen: failed to reopen auto-closed related tasks for task %s: %s", task.id, str(e))
+
+        if reopened_related:
+            message += f' {len(reopened_related)} auto-closed related task(s) also reopened.'
+
         return Response({
             'message': message,
-            'task': TaskSerializer(task, context={'request': request}).data
+            'task': TaskSerializer(task, context={'request': request}).data,
+            'reopened_related_tasks': reopened_related,
         }, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['patch'])

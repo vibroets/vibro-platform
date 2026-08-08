@@ -528,10 +528,28 @@ const TaskCloseQuestionsScreen: React.FC<TaskCloseQuestionsScreenProps> = ({ onC
         >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Task Close Questions</Text>
-            <Text style={styles.subtitle}>
-              Please answer these questions to complete the followup task
-            </Text>
+            <View style={styles.headerRow}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => {
+                  if (onClose && typeof onClose === 'function') {
+                    onClose();
+                  } else if ((navigation as any).canGoBack?.()) {
+                    (navigation as any).goBack();
+                  } else {
+                    router.replace('/(app)/(tabs)/todo');
+                  }
+                }}
+              >
+                <Text style={styles.backButtonText}>‹ Back</Text>
+              </TouchableOpacity>
+              <View style={styles.headerTitleContainer}>
+                <Text style={styles.title}>Task Close Questions</Text>
+                <Text style={styles.subtitle}>
+                  Please answer these questions to complete the followup task
+                </Text>
+              </View>
+            </View>
           </View>
 
           {/* Validation Error Banner */}
@@ -683,6 +701,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  backButton: {
+    paddingVertical: 4,
+    paddingRight: 12,
+    marginRight: 4,
+  },
+  backButtonText: {
+    ...typography.titleMedium,
+    color: '#2196f3',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  headerTitleContainer: {
+    flex: 1,
   },
   title: {
     ...typography.titleLarge,
